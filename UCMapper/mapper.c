@@ -21,6 +21,8 @@
 #define IMAGE_REL_BASED_IA64_IMM64     9
 #define IMAGE_REL_BASED_DIR64          10
 
+#pragma region code_running_on_system_address_space
+
 FORCEINLINE VOID InitSecurityCookie(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ PVOID ImageBase)
 {
     PIMAGE_LOAD_CONFIG_DIRECTORY ConfigDirectory;
@@ -598,7 +600,7 @@ NTSTATUS MiLoadSystemImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     // Try to verify based on the context a bit.
     //
 
-    if (StartContext == NULL || StartContext->ContextSize != ContextSize) {
+    if (StartContext == NULL || ((PCHAR)StartContext + ContextSize) <= (PCHAR)StartContext || StartContext->ContextSize != ContextSize) {
         status = STATUS_INVALID_PARAMETER;
         return status;
     }
@@ -671,6 +673,8 @@ NTSTATUS MiLoadSystemImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
 
     return status;
 }
+
+#pragma endregion code_running_on_system_address_space
 
 NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBase)
 {
