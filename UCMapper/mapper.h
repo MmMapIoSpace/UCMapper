@@ -44,7 +44,7 @@ typedef PVOID (*MmMapLockedPagesSpecifyCache_t)(_Inout_ PVOID MemoryDescriptorLi
 
 typedef NTSTATUS (*KeWaitForSingleObject_t)(
     _In_ _Points_to_data_ PVOID Object, _In_ _Strict_type_match_ KWAIT_REASON WaitReason, _In_ __drv_strictType(KPROCESSOR_MODE / enum _MODE, __drv_typeConst) KPROCESSOR_MODE WaitMode, _In_ BOOLEAN Alertable, _In_opt_ PLARGE_INTEGER Timeout);
-
+typedef NTSTATUS (*KeDelayExecutionThread_t)(_In_ KPROCESSOR_MODE WaitMode, _In_ BOOLEAN Alertable, _In_ PLARGE_INTEGER Interval);
 typedef PVOID (*MmAllocatePagesForMdlEx_t)(PHYSICAL_ADDRESS LowAddress, PHYSICAL_ADDRESS HighAddress, PHYSICAL_ADDRESS SkipBytes, SIZE_T TotalBytes, MEMORY_CACHING_TYPE CacheType, ULONG Flags);
 typedef PVOID (*RtlImageDirectoryEntryToData_t)(_In_ PVOID BaseOfImage, _In_ BOOLEAN MappedAsImage, _In_ USHORT DirectoryEntry, _Out_ PULONG Size);
 typedef NTSTATUS (*ObReferenceObjectByHandle_t)(_In_ HANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ POBJECT_TYPE ObjectType, _In_ KPROCESSOR_MODE AccessMode, _Out_ PVOID* Object, _Out_opt_ PVOID HandleInformation);
@@ -58,13 +58,15 @@ typedef void (*MmFreePagesFromMdl_t)(PVOID MemoryDescriptorList);
 typedef PIMAGE_NT_HEADERS (*RtlImageNtHeader_t)(_In_ PVOID Base);
 typedef NTSTATUS (*PsTerminateSystemThread_t)(NTSTATUS ExitStatus);
 typedef NTSTATUS (*PDRIVER_INITIALIZE)(PDRIVER_OBJECT, PUNICODE_STRING);
-typedef BOOLEAN (*MmSetPageProtection_t)(_In_reads_bytes_(NumberOfBytes) PVOID VirtualAddress, _In_ SIZE_T NumberOfBytes, _In_ ULONG NewProtect);
 typedef PVOID (*RtlFindExportedRoutineByName_t)(_In_ PVOID BaseOfImage, _In_ PSTR RoutineName);
 typedef VOID (*RtlInitAnsiString_t)(PANSI_STRING DestinationString, __drv_aliasesMem PCSZ SourceString);
 typedef NTSTATUS (*RtlAnsiStringToUnicodeString_t)(PUNICODE_STRING DestinationString, PCANSI_STRING SourceString, BOOLEAN AllocateDestinationString);
 typedef BOOLEAN (*RtlEqualUnicodeString_t)(PCUNICODE_STRING String1, PCUNICODE_STRING String2, BOOLEAN CaseInSensitive);
 typedef void (*RtlFreeUnicodeString_t)(PUNICODE_STRING UnicodeString);
 typedef PVOID (*MmGetSystemRoutineAddress_t)(PUNICODE_STRING SystemRoutineName);
+typedef NTSTATUS (*MmProtectMdlSystemAddress_t)(PVOID MemoryDescriptorList, ULONG NewProtect);
+typedef PVOID (*IoAllocateMdl_t)(__drv_aliasesMem PVOID VirtualAddress, ULONG Length, BOOLEAN SecondaryBuffer, BOOLEAN ChargeQuota, PVOID Irp);
+typedef void (*IoFreeMdl_t)(PVOID Mdl);
 
 //
 // Structure Data Type
@@ -79,8 +81,9 @@ typedef struct _KERNEL_IMPORT_TABLE
     MmAllocatePagesForMdlEx_t MmAllocatePagesForMdlEx;
     MmFreePagesFromMdl_t MmFreePagesFromMdl;
     MmMapLockedPagesSpecifyCache_t MmMapLockedPagesSpecifyCache;
-    //MmSetPageProtection_t MmSetPageProtection;
+    MmProtectMdlSystemAddress_t MmProtectMdlSystemAddress;
     KeWaitForSingleObject_t KeWaitForSingleObject;
+    KeDelayExecutionThread_t KeDelayExecutionThread;
     ExAllocatePool2_t ExAllocatePool2;
     ExFreePoolWithTag_t ExFreePoolWithTag;
     RtlImageNtHeader_t RtlImageNtHeader;
@@ -97,6 +100,8 @@ typedef struct _KERNEL_IMPORT_TABLE
     PsTerminateSystemThread_t PsTerminateSystemThread;
     PsGetThreadExitStatus_t PsGetThreadExitStatus;
     ZwClose_t ZwClose;
+    IoAllocateMdl_t IoAllocateMdl;
+    IoFreeMdl_t IoFreeMdl;
 } KERNEL_IMPORT_TABLE, *PKERNEL_IMPORT_TABLE;
 
 typedef struct _MAPPER_EXECUTOR_CONTEXT
@@ -106,6 +111,7 @@ typedef struct _MAPPER_EXECUTOR_CONTEXT
     NTSTATUS DriverStatus;
     PVOID ImageBase;
     SIZE_T ImageSize;
+    PVOID Unloader;
     PVOID MemoryDescriptor;
     PVOID MapSection;
     KERNEL_IMPORT_TABLE ImportTable;

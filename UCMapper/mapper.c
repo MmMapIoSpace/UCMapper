@@ -311,13 +311,13 @@ FORCEINLINE NTSTATUS ResolveImageReferences(_In_ PMAPPER_EXECUTOR_CONTEXT StartC
                     return STATUS_PROCEDURE_NOT_FOUND;
                 }
 
-                AddrThunk->u1.Function = (ULONGLONG)ProcedureAddress;
-                NameThunk++;
-                AddrThunk++;
+                AddrThunk->u1.Function  = (ULONGLONG)ProcedureAddress;
+                NameThunk              += 1;
+                AddrThunk              += 1;
             }
         }
 
-        ImportDescriptor++;
+        ImportDescriptor += 1;
     }
 
     return STATUS_SUCCESS;
@@ -407,6 +407,43 @@ Exit:
     return Status;
 }
 
+VOID MiUnloadSystemImage(_In_ PDRIVER_OBJECT DriverObject)
+{
+    PMAPPER_EXECUTOR_CONTEXT SectionContext;
+    PVOID DriverStart;
+    ULONG DriverSize;
+    ExFreePoolWithTag_t ExFreePool;
+    PsTerminateSystemThread_t PsTerminate;
+    PVOID DriverUnload;
+    LARGE_INTEGER timeout;
+
+    DriverStart      = DriverObject->DriverStart;
+    DriverSize       = DriverObject->DriverSize;
+    SectionContext   = DriverObject->DriverSection;
+    DriverUnload     = DriverObject->DriverUnload;
+    ExFreePool       = SectionContext->ImportTable.ExFreePoolWithTag;
+    PsTerminate      = SectionContext->ImportTable.PsTerminateSystemThread;
+    timeout.QuadPart = RELATIVE_TIME(SECONDS(2));
+
+    // Delay execution for 2 seconds so driver can exit perfectly.
+    SectionContext->ImportTable.KeDelayExecutionThread(0, FALSE, &timeout);
+
+    if (DriverStart && DriverSize) {
+        SectionContext->ImportTable.MmFreePagesFromMdl(SectionContext->MemoryDescriptor);
+        ExFreePool(SectionContext->MemoryDescriptor, 0);
+    }
+
+    ExFreePool(DriverObject, 0);
+    ExFreePool(SectionContext, 0);
+
+    // Release this executor allocation.
+    ExFreePool(DriverUnload, 0);
+
+    // since the allocation already released, should never be hitted.
+    PsTerminate(STATUS_SUCCESS);
+    return;
+}
+
 VOID MiLoadSystemImageWorker(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
 {
     PVOID ImageBase;
@@ -422,6 +459,7 @@ VOID MiLoadSystemImageWorker(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     ULONG Characteristics;
     ULONG SectionProtection;
     ULONG HeaderSize;
+    PVOID MdlHack;
 
     ImageBase   = StartContext->MapSection;
     ImportTable = &StartContext->ImportTable;
@@ -464,6 +502,7 @@ VOID MiLoadSystemImageWorker(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     DriverObject->DriverStart   = ImageBase;
     DriverObject->DriverSize    = NtHeader->OptionalHeader.SizeOfImage;
     DriverObject->DriverSection = StartContext;
+    DriverObject->DriverUnload  = StartContext->Unloader;
     DriverObject->DriverInit    = RtlOffsetToPointer(ImageBase, NtHeader->OptionalHeader.AddressOfEntryPoint);
     DriverEntry                 = DriverObject->DriverInit;
 
@@ -504,6 +543,12 @@ VOID MiLoadSystemImageWorker(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
 
             if (SectionProtection != 0) {
                 //ImportTable->MmSetPageProtection(SectionStart, SectionSize, SectionProtection);
+
+                MdlHack = ImportTable->IoAllocateMdl(SectionStart, SectionSize, FALSE, FALSE, NULL);
+                if (MdlHack != NULL) {
+                    ImportTable->MmProtectMdlSystemAddress(MdlHack, SectionProtection);
+                    ImportTable->IoFreeMdl(MdlHack);
+                }
             }
         }
 
@@ -511,15 +556,19 @@ VOID MiLoadSystemImageWorker(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
             *k ^= (ULONG)((ULONGLONG)k);
         }
 
+        MdlHack = ImportTable->IoAllocateMdl(ImageBase, HeaderSize, FALSE, FALSE, NULL);
+        if (MdlHack != NULL) {
+            ImportTable->MmProtectMdlSystemAddress(MdlHack, PAGE_READONLY);
+            ImportTable->IoFreeMdl(MdlHack);
+        }
         //ImportTable->MmSetPageProtection(ImageBase, HeaderSize, PAGE_READONLY);
     }
 
     if NT_ERROR (status) {
-        ImportTable->ExFreePoolWithTag(DriverObject, 0);
         ImportTable->MmFreePagesFromMdl(StartContext->MemoryDescriptor);
+        ImportTable->ExFreePoolWithTag(StartContext->MemoryDescriptor, 0);
+        ImportTable->ExFreePoolWithTag(DriverObject, 0);
     }
-
-    ImportTable->ExFreePoolWithTag(StartContext->MemoryDescriptor, 0);
 
 ExitPoint:
     ImportTable->PsTerminateSystemThread(status);
@@ -627,7 +676,7 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
 {
     typedef NTSTATUS (*PROTOTYPE_ROUTINE)(PVOID StartContex);
 
-    SIZE_T procSize, procSize2;
+    SIZE_T procSize, procSize2, procSize3;
     ULONGLONG Executor;
     ULONGLONG Worker;
     ULONGLONG Unloader;
@@ -641,12 +690,15 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
     status    = STATUS_MEMORY_NOT_ALLOCATED;
     procSize  = GetProcedureSize(MiLoadSystemImage);
     procSize2 = GetProcedureSize(MiLoadSystemImageWorker);
-    Executor  = ExAllocatePool2(Driver, procSize);
-    Worker    = ExAllocatePool2(Driver, procSize2);
+    procSize3 = GetProcedureSize(MiUnloadSystemImage);
+
+    Executor = ExAllocatePool2(Driver, procSize);
+    Worker   = ExAllocatePool2(Driver, procSize2);
+    Unloader = ExAllocatePool2(Driver, procSize3);
 
     MiLoadSystemImageRoutine = (PROTOTYPE_ROUTINE)NtSetEaFile;
 
-    if (Executor != 0 && Worker != 0) {
+    if (Executor != 0 && Worker != 0 && Unloader != 0) {
         //
         // write to allocation.
         //
@@ -655,6 +707,7 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
         if NT_ERROR (status) {
             PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
             ExFreePool(Driver, Executor);
+            ExFreePool(Driver, Unloader);
             ExFreePool(Driver, Worker);
             return status;
         }
@@ -663,6 +716,16 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
         if NT_ERROR (status) {
             PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
             ExFreePool(Driver, Executor);
+            ExFreePool(Driver, Unloader);
+            ExFreePool(Driver, Worker);
+            return status;
+        }
+
+        status = Driver->WriteMemory(Driver->DeviceHandle, Unloader, MiUnloadSystemImage, procSize3);
+        if NT_ERROR (status) {
+            PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+            ExFreePool(Driver, Executor);
+            ExFreePool(Driver, Unloader);
             ExFreePool(Driver, Worker);
             return status;
         }
@@ -678,6 +741,7 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
         Context.ImageSize        = RtlImageNtHeader(ImageBase)->OptionalHeader.SizeOfImage;
         Context.MemoryDescriptor = 0;
         Context.MapSection       = 0;
+        Context.Unloader         = (PVOID)Unloader;
 
         //
         // Resolve Import Table.
@@ -690,8 +754,9 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
         Context.ImportTable.MmAllocatePagesForMdlEx      = (PVOID)GetSystemRoutineAddressA("MmAllocatePagesForMdlEx");
         Context.ImportTable.MmFreePagesFromMdl           = (PVOID)GetSystemRoutineAddressA("MmFreePagesFromMdl");
         Context.ImportTable.MmMapLockedPagesSpecifyCache = (PVOID)GetSystemRoutineAddressA("MmMapLockedPagesSpecifyCache");
-        //Context.ImportTable.MmSetPageProtection          = (PVOID)GetSystemRoutineAddressA("MmSetPageProtection");
+        Context.ImportTable.MmProtectMdlSystemAddress    = (PVOID)GetSystemRoutineAddressA("MmProtectMdlSystemAddress");
         Context.ImportTable.KeWaitForSingleObject        = (PVOID)GetSystemRoutineAddressA("KeWaitForSingleObject");
+        Context.ImportTable.KeDelayExecutionThread       = (PVOID)GetSystemRoutineAddressA("KeDelayExecutionThread");
         Context.ImportTable.ExAllocatePool2              = (PVOID)GetSystemRoutineAddressA("ExAllocatePool2");
         Context.ImportTable.ExFreePoolWithTag            = (PVOID)GetSystemRoutineAddressA("ExFreePoolWithTag");
         Context.ImportTable.RtlImageNtHeader             = (PVOID)GetSystemRoutineAddressA("RtlImageNtHeader");
@@ -708,15 +773,18 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
         Context.ImportTable.PsTerminateSystemThread      = (PVOID)GetSystemRoutineAddressA("PsTerminateSystemThread");
         Context.ImportTable.PsGetThreadExitStatus        = (PVOID)GetSystemRoutineAddressA("PsGetThreadExitStatus");
         Context.ImportTable.ZwClose                      = (PVOID)GetSystemRoutineAddressA("ZwClose");
+        Context.ImportTable.IoAllocateMdl                = (PVOID)GetSystemRoutineAddressA("IoAllocateMdl");
+        Context.ImportTable.IoFreeMdl                    = (PVOID)GetSystemRoutineAddressA("IoFreeMdl");
 
         CurrentImport = (PULONGLONG)&Context.ImportTable;
         for (i = 0; i < sizeof(Context.ImportTable) / sizeof(PVOID); i += 1) {
             if (CurrentImport[i] == 0) {
-                printf("[!] CurrentImport[%llu] not found: 0x%llX.", i, CurrentImport[i]);
+                wprintf(L"[!] CurrentImport[%llu] not found: 0x%llX.", i, CurrentImport[i]);
 
                 status = STATUS_NOT_FOUND;
                 PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
                 ExFreePool(Driver, Executor);
+                ExFreePool(Driver, Unloader);
                 ExFreePool(Driver, Worker);
                 return status;
             }
@@ -741,6 +809,10 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
 
     if (Worker)
         ExFreePool(Driver, Worker);
+
+    if NT_ERROR (status)
+        if (Unloader)
+            ExFreePool(Driver, Unloader);
 
     return status;
 }

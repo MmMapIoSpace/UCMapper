@@ -1,42 +1,5 @@
 #include "main.h"
 
-void _cdecl wmain2(_In_ int argc, _In_ wchar_t* argv[])
-{
-    NTSTATUS status;
-    PUNICODE_STRING CurrentPath;
-    LPWSTR DeviceName;
-    LPWSTR DriverPath;
-    LPWSTR ServiceName;
-    DEVICE_DRIVER_OBJECT Driver;
-
-    ServiceName = L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\NVR0Internal";
-    DeviceName  = L"\\Device\\NVR0Internal";
-    CurrentPath = &NtCurrentPeb()->ProcessParameters->CurrentDirectory.DosPath;
-    DriverPath  = RtlAllocateMemory(MAX_PATH * sizeof(WCHAR));
-
-    StringCchCopyW(DriverPath, MAX_PATH, CurrentPath->Buffer);
-    StringCchCatW(DriverPath, MAX_PATH, L"nvaudio.sys");
-
-    printf("[+] ServiceName: %ws.\r\n", ServiceName);
-    printf("[+] DeviceName: %ws.\r\n", DeviceName);
-    printf("[+] DriverPath: %ws.\r\n", DriverPath);
-
-    status = LoadDriver(&Driver.DeviceHandle, DriverPath, ServiceName, DeviceName);
-    if NT_SUCCESS (status) {
-        Driver.ReadMemory  = ReadSystemMemory;
-        Driver.WriteMemory = WriteSystemMemory;
-
-        ULONGLONG PoolAddress = ExAllocatePool2(&Driver, PAGE_SIZE);
-        if (PoolAddress) {
-            printf("[+] PoolAddress: 0x%llX.", PoolAddress);
-            ExFreePool(&Driver, PoolAddress);
-        }
-
-        UnloadDriver(Driver.DeviceHandle, ServiceName);
-    }
-    RtlFreeMemory(DriverPath);
-}
-
 void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
 {
     NTSTATUS status;
@@ -53,13 +16,13 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
     LPWSTR DriverPath;
     LPWSTR ServiceName;
 
-    if (argc < 2) {
-        wprintf(L"[!] invalid arguments.\r\n\t%ws <Driver Path>", argv[0]);
+    if (argc != 2) {
+        wprintf(L"[!] invalid arguments.\r\n\t%ws <Driver Path>\r\n", argv[0]);
         return;
     }
 
     if (RtlDosPathNameToNtPathName_U(argv[1], &unicodeString, NULL, NULL) == FALSE) {
-        wprintf(L"[!] invalid object path, make sure it correct and exists: %ws.", argv[1]);
+        wprintf(L"[!] invalid object path, make sure it correct and exists: %ws.\r\n", argv[1]);
         return;
     }
 
@@ -100,16 +63,18 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
     StringCchCatW(DriverPath, MAX_PATH, L"nvaudio.sys");
 
     status = LoadDriver(&Driver.DeviceHandle, DriverPath, ServiceName, DeviceName);
+    RtlFreeMemory(DriverPath);
+
     if NT_SUCCESS (status) {
         Driver.ReadMemory  = ReadSystemMemory;
         Driver.WriteMemory = WriteSystemMemory;
 
         status = MmLoadSystemImage(&Driver, ImageBase);
+        wprintf(L"[+] Mapping result: 0x%08X.\r\n", status);
 
         UnloadDriver(Driver.DeviceHandle, ServiceName);
     }
 
-    RtlFreeMemory(DriverPath);
     NtUnmapViewOfSection(NtCurrentProcess(), ImageBase);
     return;
 }
