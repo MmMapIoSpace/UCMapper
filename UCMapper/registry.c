@@ -62,6 +62,8 @@ NTSTATUS RtlRegDeleteKey(_In_ LPCWSTR RegistryPath)
     HANDLE RegistryHandle;
     UNICODE_STRING unicodeString;
     NTSTATUS status;
+
+    RtlInitUnicodeString(&unicodeString, RegistryPath);
     OBJECT_ATTRIBUTES objectAttributes = RTL_CONSTANT_OBJECT_ATTRIBUTES(&unicodeString, OBJ_CASE_INSENSITIVE);
 
     status = NtOpenKey(&RegistryHandle, KEY_ALL_ACCESS, &objectAttributes);
