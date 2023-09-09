@@ -54,6 +54,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="driver.c" />
+    <ClCompile Include="driverlist.c" />
     <ClCompile Include="hde64.c" />
     <ClCompile Include="hook.c" />
     <ClCompile Include="main.c" />
