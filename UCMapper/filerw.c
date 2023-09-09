@@ -15,11 +15,11 @@ NTSTATUS WriteFileFromMemory(_In_ LPCWSTR Destination, _In_reads_bytes_(BufferLe
 
     RtlDosPathNameToNtPathName_U(Destination, &UnicodeString, NULL, NULL);
     InitializeObjectAttributes(&ObjectAttributes, &UnicodeString, OBJ_CASE_INSENSITIVE, NULL, NULL);
-    Status = NtCreateFile(&FileHandle, FILE_ALL_ACCESS, &ObjectAttributes, &IoStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE, FILE_OVERWRITE, FILE_NON_DIRECTORY_FILE, NULL, 0);
+    Status = NtCreateFile(&FileHandle, FILE_ALL_ACCESS, &ObjectAttributes, &IoStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE, FILE_SUPERSEDE, FILE_NON_DIRECTORY_FILE, NULL, 0);
     RtlFreeUnicodeString(&UnicodeString);
 
     if NT_ERROR (Status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(Status));
+        PRINT_ERROR_NTSTATUS(Status);
         return Status;
     }
 
@@ -32,7 +32,7 @@ NTSTATUS WriteFileFromMemory(_In_ LPCWSTR Destination, _In_reads_bytes_(BufferLe
     }
 
     if NT_ERROR (Status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(Status));
+        PRINT_ERROR_NTSTATUS(Status);
         NtClose(FileHandle);
         return Status;
     }

@@ -709,7 +709,7 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
 
         status = Driver->WriteMemory(Driver->DeviceHandle, Executor, MiLoadSystemImage, procSize);
         if NT_ERROR (status) {
-            PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+            PRINT_ERROR_NTSTATUS(status);
             ExFreePool(Driver, Executor);
             ExFreePool(Driver, Unloader);
             ExFreePool(Driver, Worker);
@@ -718,7 +718,7 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
 
         status = Driver->WriteMemory(Driver->DeviceHandle, Worker, MiLoadSystemImageWorker, procSize2);
         if NT_ERROR (status) {
-            PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+            PRINT_ERROR_NTSTATUS(status);
             ExFreePool(Driver, Executor);
             ExFreePool(Driver, Unloader);
             ExFreePool(Driver, Worker);
@@ -727,7 +727,7 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
 
         status = Driver->WriteMemory(Driver->DeviceHandle, Unloader, MiUnloadSystemImage, procSize3);
         if NT_ERROR (status) {
-            PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+            PRINT_ERROR_NTSTATUS(status);
             ExFreePool(Driver, Executor);
             ExFreePool(Driver, Unloader);
             ExFreePool(Driver, Worker);
@@ -785,8 +785,8 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
             if (CurrentImport[i] == 0) {
                 wprintf(L"[!] CurrentImport[%llu] not found: 0x%llX.", i, CurrentImport[i]);
 
-                status = STATUS_NOT_FOUND;
-                PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+                status = STATUS_PROCEDURE_NOT_FOUND;
+                PRINT_ERROR_NTSTATUS(status);
                 ExFreePool(Driver, Executor);
                 ExFreePool(Driver, Unloader);
                 ExFreePool(Driver, Worker);

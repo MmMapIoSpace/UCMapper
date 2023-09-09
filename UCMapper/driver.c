@@ -50,7 +50,7 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
     RtlFreeUnicodeString(&UnicodeString);
 
     if NT_ERROR (Status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(Status));
+        PRINT_ERROR_NTSTATUS(Status);
 
         RtlRegDeleteKey(ServiceName);
         return Status;
@@ -58,7 +58,7 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
 
     Status = RtlRegSetKeyValue32(ServiceName, L"Type", 1);
     if NT_ERROR (Status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(Status));
+        PRINT_ERROR_NTSTATUS(Status);
 
         RtlRegDeleteKey(ServiceName);
         return Status;
@@ -67,7 +67,7 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
     RtlInitUnicodeString(&UnicodeString, ServiceName);
     Status = NtLoadDriver(&UnicodeString);
     if NT_ERROR (Status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(Status));
+        PRINT_ERROR_NTSTATUS(Status);
 
         RtlRegDeleteKey(ServiceName);
         return Status;
@@ -82,7 +82,7 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
     Status = NtOpenFile(DeviceHandle, FILE_ALL_ACCESS, &ObjectAttributes, &IoStatusBlock, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_ATTRIBUTE_DEVICE);
 
     if NT_ERROR (Status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(Status));
+        PRINT_ERROR_NTSTATUS(Status);
 
         RtlInitUnicodeString(&UnicodeString, ServiceName);
         NtUnloadDriver(&UnicodeString);
@@ -98,7 +98,7 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
     Status = LdrLoadDll(NULL, NULL, &UnicodeString, &NvAudioLibrary);
 
     if NT_ERROR (Status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(STATUS_DLL_INIT_FAILED));
+        PRINT_ERROR_NTSTATUS(Status);
 
         UnloadDriver(*DeviceHandle, ServiceName);
         return Status;
@@ -112,6 +112,10 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
         UnloadDriver(*DeviceHandle, ServiceName);
         return STATUS_FAILED_DRIVER_ENTRY;
     }
+
+    //
+    // Remove Driver RuntimeList.
+    //
 
     return Status;
 }
@@ -193,7 +197,7 @@ NTSTATUS ReadSystemMemory(_In_ HANDLE DeviceHandle, _In_ ULONGLONG Source, _Out_
 
     PhysicalAddress = GetPhysicalAddress(DeviceHandle, Source);
     if (PhysicalAddress == 0)
-        return STATUS_INVALID_ADDRESS;
+        return STATUS_CONFLICTING_ADDRESSES;
 
     return ReadPhysicalMemory(DeviceHandle, PhysicalAddress, Destination, Length);
 }
@@ -204,7 +208,7 @@ NTSTATUS WriteSystemMemory(_In_ HANDLE DeviceHandle, _In_ ULONGLONG Destination,
 
     PhysicalAddress = GetPhysicalAddress(DeviceHandle, Destination);
     if (PhysicalAddress == 0)
-        return STATUS_INVALID_ADDRESS;
+        return STATUS_CONFLICTING_ADDRESSES;
 
     return WritePhysicalMemory(DeviceHandle, PhysicalAddress, Source, Length);
 }

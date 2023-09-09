@@ -41,20 +41,20 @@
 
 typedef struct _FAR_JMP_16
 {
-    UCHAR  OpCode; // = 0xe9
+    UCHAR OpCode; // = 0xe9
     USHORT Offset;
 } FAR_JMP_16;
 
 typedef struct _FAR_TARGET_32
 {
-    ULONG  Offset;
+    ULONG Offset;
     USHORT Selector;
 } FAR_TARGET_32;
 
 typedef struct _PSEUDO_DESCRIPTOR_32
 {
     USHORT Limit;
-    ULONG  Base;
+    ULONG Base;
 } PSEUDO_DESCRIPTOR_32;
 
 #pragma pack(pop)
@@ -110,8 +110,8 @@ typedef union _KIDTENTRY64
         USHORT Dpl       : 2;
         USHORT Present   : 1;
         USHORT OffsetMiddle;
-        ULONG  OffsetHigh;
-        ULONG  Reserved1;
+        ULONG OffsetHigh;
+        ULONG Reserved1;
     };
 
     ULONGLONG Alignment;
@@ -122,9 +122,9 @@ typedef union _KGDT_BASE
     struct
     {
         USHORT BaseLow;
-        UCHAR  BaseMiddle;
-        UCHAR  BaseHigh;
-        ULONG  BaseUpper;
+        UCHAR BaseMiddle;
+        UCHAR BaseHigh;
+        ULONG BaseUpper;
     };
 
     ULONGLONG Base;
@@ -148,51 +148,51 @@ typedef struct _KDESCRIPTOR
 {
     USHORT Pad[3];
     USHORT Limit;
-    PVOID  Base;
+    PVOID Base;
 } KDESCRIPTOR, *PKDESCRIPTOR;
 
 typedef struct _KDESCRIPTOR32
 {
     USHORT Pad[3];
     USHORT Limit;
-    ULONG  Base;
+    ULONG Base;
 } KDESCRIPTOR32, *PKDESCRIPTOR32;
 
 typedef struct _KSPECIAL_REGISTERS
 {
-    ULONGLONG   Cr0;
-    ULONGLONG   Cr2;
-    ULONGLONG   Cr3;
-    ULONGLONG   Cr4;
-    ULONGLONG   KernelDr0;
-    ULONGLONG   KernelDr1;
-    ULONGLONG   KernelDr2;
-    ULONGLONG   KernelDr3;
-    ULONGLONG   KernelDr6;
-    ULONGLONG   KernelDr7;
+    ULONGLONG Cr0;
+    ULONGLONG Cr2;
+    ULONGLONG Cr3;
+    ULONGLONG Cr4;
+    ULONGLONG KernelDr0;
+    ULONGLONG KernelDr1;
+    ULONGLONG KernelDr2;
+    ULONGLONG KernelDr3;
+    ULONGLONG KernelDr6;
+    ULONGLONG KernelDr7;
     KDESCRIPTOR Gdtr;
     KDESCRIPTOR Idtr;
-    USHORT      Tr;
-    USHORT      Ldtr;
-    ULONG       MxCsr;
-    ULONGLONG   DebugControl;
-    ULONGLONG   LastBranchToRip;
-    ULONGLONG   LastBranchFromRip;
-    ULONGLONG   LastExceptionToRip;
-    ULONGLONG   LastExceptionFromRip;
-    ULONGLONG   Cr8;
-    ULONGLONG   MsrGsBase;
-    ULONGLONG   MsrGsSwap;
-    ULONGLONG   MsrStar;
-    ULONGLONG   MsrLStar;
-    ULONGLONG   MsrCStar;
-    ULONGLONG   MsrSyscallMask;
+    USHORT Tr;
+    USHORT Ldtr;
+    ULONG MxCsr;
+    ULONGLONG DebugControl;
+    ULONGLONG LastBranchToRip;
+    ULONGLONG LastBranchFromRip;
+    ULONGLONG LastExceptionToRip;
+    ULONGLONG LastExceptionFromRip;
+    ULONGLONG Cr8;
+    ULONGLONG MsrGsBase;
+    ULONGLONG MsrGsSwap;
+    ULONGLONG MsrStar;
+    ULONGLONG MsrLStar;
+    ULONGLONG MsrCStar;
+    ULONGLONG MsrSyscallMask;
 } KSPECIAL_REGISTERS, *PKSPECIAL_REGISTERS;
 
 typedef struct _KPROCESSOR_STATE
 {
     KSPECIAL_REGISTERS SpecialRegisters;
-    CONTEXT            ContextFrame;
+    CONTEXT ContextFrame;
 } KPROCESSOR_STATE, *PKPROCESSOR_STATE;
 
 typedef struct _PROCESSOR_START_BLOCK* PPROCESSOR_START_BLOCK;
@@ -203,51 +203,51 @@ typedef struct _PROCESSOR_START_BLOCK
     // The block starts with a jmp instruction to the end of the block
     //
 
-    FAR_JMP_16             Jmp;
+    FAR_JMP_16 Jmp;
 
     //
     // Completion flag is set to non-zero when the target processor has
     // started
     //
 
-    ULONG                  CompletionFlag;
+    ULONG CompletionFlag;
 
     //
     // Pseudo descriptors for GDT and IDT.
     //
 
-    PSEUDO_DESCRIPTOR_32   Gdt32;
-    PSEUDO_DESCRIPTOR_32   Idt32;
+    PSEUDO_DESCRIPTOR_32 Gdt32;
+    PSEUDO_DESCRIPTOR_32 Idt32;
 
     //
     // The temporary 32-bit GDT itself resides here.
     //
 
-    KGDTENTRY64            Gdt[PSB_GDT32_MAX + 1];
+    KGDTENTRY64 Gdt[PSB_GDT32_MAX + 1];
 
     //
     // Physical address of the 64-bit top-level identity-mapped page table.
     //
 
-    ULONGLONG              TiledCr3;
+    ULONGLONG TiledCr3;
 
     //
     // Far jump target from Rm to Pm code
     //
 
-    FAR_TARGET_32          PmTarget;
+    FAR_TARGET_32 PmTarget;
 
     //
     // Far jump target from Pm to Lm code
     //
 
-    FAR_TARGET_32          LmIdentityTarget;
+    FAR_TARGET_32 LmIdentityTarget;
 
     //
     // Address of LmTarget
     //
 
-    PVOID                  LmTarget;
+    PVOID LmTarget;
 
     //
     // Linear address of this structure
@@ -259,19 +259,19 @@ typedef struct _PROCESSOR_START_BLOCK
     // Contents of the PAT msr
     //
 
-    ULONGLONG              MsrPat;
+    ULONGLONG MsrPat;
 
     //
     // Contents of the EFER msr
     //
 
-    ULONGLONG              MsrEFER;
+    ULONGLONG MsrEFER;
 
     //
     // Initial processor state for the processor to be started
     //
 
-    KPROCESSOR_STATE       ProcessorState;
+    KPROCESSOR_STATE ProcessorState;
 
 } PROCESSOR_START_BLOCK;
 

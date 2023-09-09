@@ -17,6 +17,8 @@ VOID DriverMain(_In_ PDRIVER_OBJECT DriverObject)
     PsTerminateSystemThread(STATUS_SUCCESS);
 }
 
+extern PLIST_ENTRY PsLoadedModuleList;
+
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 {
     HANDLE mainThread;
@@ -28,6 +30,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     DbgPrint("[+] Driver called at %02X.", KeGetCurrentIrql());
     DbgPrint("[+] Driver start at %p.", DriverObject->DriverStart);
     DbgPrint("[+] Driver size for %08X.", DriverObject->DriverSize);
+    DbgPrint("[+] PsLoadedModuleList 0x%p.", PsLoadedModuleList);
 
     if NT_SUCCESS (PsCreateSystemThread(&mainThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, DriverMain, DriverObject))
         return ZwClose(mainThread);

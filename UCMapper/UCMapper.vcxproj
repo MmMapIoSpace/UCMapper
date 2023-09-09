@@ -66,6 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h" />
+    <ClInclude Include="driverlist.h" />
     <ClInclude Include="filerw.h" />
     <ClInclude Include="halamd64.h" />
     <ClInclude Include="hde64.h" />

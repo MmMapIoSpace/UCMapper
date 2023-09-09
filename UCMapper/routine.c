@@ -85,7 +85,7 @@ ULONGLONG GetSystemRoutineAddressA(_In_ LPCSTR RoutineName)
     RtlInitUnicodeString(&unicodeString, moduleName);
     status = LdrLoadDll(NULL, NULL, &unicodeString, (PVOID*)&ImageBase);
     if NT_ERROR (status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+        PRINT_ERROR_NTSTATUS(status);
         return 0;
     }
 

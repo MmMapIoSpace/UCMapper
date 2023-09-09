@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #define UMDF_USING_NTSTATUS
 #include <Windows.h>
 #include <ntstatus.h>
@@ -14,6 +19,7 @@
 #include "hde64.h"
 #include "registry.h"
 #include "filerw.h"
+#include "driverlist.h"
 
 #pragma intrinsic(memcpy)
 #pragma intrinsic(memset)
@@ -31,4 +37,8 @@
 #else
 #define PRINT_ERROR_STATUS(ErrorCode)
 #define PRINT_ERROR_NTSTATUS(Status)
+#endif
+
+#ifdef __cplusplus
+}
 #endif
