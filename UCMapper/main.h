@@ -13,6 +13,7 @@
 #include "hook.h"
 #include "hde64.h"
 #include "registry.h"
+#include "filerw.h"
 
 #pragma intrinsic(memcpy)
 #pragma intrinsic(memset)

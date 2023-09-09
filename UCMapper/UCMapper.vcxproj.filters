@@ -39,6 +39,12 @@
     <ClCompile Include="driverlist.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="driverbuf.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="filerw.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -66,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="registry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="filerw.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

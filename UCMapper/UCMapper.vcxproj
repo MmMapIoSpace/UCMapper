@@ -55,15 +55,18 @@
   <ItemGroup>
     <ClCompile Include="driver.c" />
     <ClCompile Include="driverlist.c" />
+    <ClCompile Include="filerw.c" />
     <ClCompile Include="hde64.c" />
     <ClCompile Include="hook.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="mapper.c" />
+    <ClCompile Include="driverbuf.c" />
     <ClCompile Include="registry.c" />
     <ClCompile Include="routine.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h" />
+    <ClInclude Include="filerw.h" />
     <ClInclude Include="halamd64.h" />
     <ClInclude Include="hde64.h" />
     <ClInclude Include="hook.h" />

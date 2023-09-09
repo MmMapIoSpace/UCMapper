@@ -62,8 +62,15 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
     StringCchCopyW(DriverPath, MAX_PATH, CurrentPath->Buffer);
     StringCchCatW(DriverPath, MAX_PATH, L"nvaudio.sys");
 
+    status = WriteFileFromMemory(DriverPath, NvaudioDriver, sizeof(NvaudioDriver));
+    if NT_ERROR (status) {
+        PRINT_ERROR_STATUS(RtlNtStatusToDosError(status));
+
+        NtUnmapViewOfSection(NtCurrentProcess(), ImageBase);
+        return;
+    }
+
     status = LoadDriver(&Driver.DeviceHandle, DriverPath, ServiceName, DeviceName);
-    RtlFreeMemory(DriverPath);
 
     if NT_SUCCESS (status) {
         Driver.ReadMemory  = ReadSystemMemory;
@@ -75,6 +82,8 @@ void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
         UnloadDriver(Driver.DeviceHandle, ServiceName);
     }
 
+    DeleteFileFromDisk(DriverPath);
+    RtlFreeMemory(DriverPath);
     NtUnmapViewOfSection(NtCurrentProcess(), ImageBase);
     return;
 }

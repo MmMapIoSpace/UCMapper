@@ -73,6 +73,10 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
         return Status;
     }
 
+    //
+    // Open device handle
+    //
+
     RtlInitUnicodeString(&UnicodeString, DeviceName);
     InitializeObjectAttributes(&ObjectAttributes, &UnicodeString, OBJ_CASE_INSENSITIVE, NULL, NULL);
     Status = NtOpenFile(DeviceHandle, FILE_ALL_ACCESS, &ObjectAttributes, &IoStatusBlock, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_ATTRIBUTE_DEVICE);
