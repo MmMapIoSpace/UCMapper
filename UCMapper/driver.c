@@ -110,12 +110,24 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In
 
         LdrUnloadDll(NvAudioLibrary);
         UnloadDriver(*DeviceHandle, ServiceName);
-        return STATUS_FAILED_DRIVER_ENTRY;
+        return STATUS_INVALID_ADDRESS;
     }
 
     //
     // Remove Driver RuntimeList.
     //
+
+    DEVICE_DRIVER_OBJECT Driver;
+    Driver.DeviceHandle = *DeviceHandle;
+    Driver.ReadMemory   = ReadSystemMemory;
+    Driver.WriteMemory  = WriteSystemMemory;
+    if (RemoveDriverRuntimeList(&Driver, L"nvaudio.sys", RtlImageNtHeader(NvAudioLibrary)->FileHeader.TimeDateStamp) == FALSE) {
+        PRINT_ERROR_STATUS(RtlNtStatusToDosError(STATUS_ACCESS_DENIED));
+
+        LdrUnloadDll(NvAudioLibrary);
+        UnloadDriver(*DeviceHandle, ServiceName);
+        return STATUS_ACCESS_DENIED;
+    }
 
     return Status;
 }

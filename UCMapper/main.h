@@ -25,12 +25,18 @@ extern "C"
 #pragma intrinsic(memset)
 
 #ifndef DISABLE_NTSTATUS_ERROR_OUTPUT
-#define PRINT_ERROR_STATUS(ErrorCode)                                                                                                                                                                       \
-    {                                                                                                                                                                                                       \
-        LPVOID Message;                                                                                                                                                                                     \
-        FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&Message, 0, NULL); \
-        wprintf(L"[!] %hs[%u]: %ws", __FUNCTION__, __LINE__, (LPWSTR)Message);                                                                                                                              \
-        LocalFree(Message);                                                                                                                                                                                 \
+#define PRINT_ERROR_STATUS(ErrorCode)                                                                               \
+    {                                                                                                               \
+        LPVOID Message;                                                                                             \
+        FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, \
+                       NULL,                                                                                        \
+                       ErrorCode,                                                                                   \
+                       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),                                                   \
+                       (LPWSTR)&Message,                                                                            \
+                       0,                                                                                           \
+                       NULL);                                                                                       \
+        wprintf(L"[!] %hs[%u]: %ws", __FUNCTION__, __LINE__, (LPWSTR)Message);                                      \
+        LocalFree(Message);                                                                                         \
     }
 
 #define PRINT_ERROR_NTSTATUS(Status) PRINT_ERROR_STATUS(RtlNtStatusToDosError(Status))

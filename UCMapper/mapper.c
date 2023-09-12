@@ -201,7 +201,8 @@ FORCEINLINE PVOID LdrGetSystemModuleBaseA(_In_ PMAPPER_EXECUTOR_CONTEXT StartCon
         for (Link = ImportTable->PsLoadedModuleList; Link != ImportTable->PsLoadedModuleList->Blink; Link = Link->Flink) {
             Entry = CONTAINING_RECORD(Link, KLDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
 
-            if (ImportTable->RtlEqualUnicodeString(&Entry->BaseDllName, &UnicodeString, TRUE) || ImportTable->RtlEqualUnicodeString(&Entry->FullDllName, &UnicodeString, TRUE)) {
+            if (ImportTable->RtlEqualUnicodeString(&Entry->BaseDllName, &UnicodeString, TRUE)
+                || ImportTable->RtlEqualUnicodeString(&Entry->FullDllName, &UnicodeString, TRUE)) {
                 Destination = Entry;
                 break;
             }

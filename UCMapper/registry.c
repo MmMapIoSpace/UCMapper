@@ -1,6 +1,7 @@
 #include "main.h"
 
-NTSTATUS RtlRegSetKeyValue(_In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _In_ ULONG Type, _In_reads_bytes_(BufferLength) PVOID Buffer, _In_ ULONG BufferLength)
+NTSTATUS RtlRegSetKeyValue(
+    _In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _In_ ULONG Type, _In_reads_bytes_(BufferLength) PVOID Buffer, _In_ ULONG BufferLength)
 {
     HANDLE RegistryHandle;
     UNICODE_STRING unicodeString;

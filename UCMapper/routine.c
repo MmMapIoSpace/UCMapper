@@ -116,3 +116,85 @@ ULONGLONG GetSystemRoutineAddressW(_In_ LPCWSTR RoutineName)
     }
     return Destination;
 }
+
+ULONGLONG GetObjectByHandle(_In_ HANDLE ObjectHandle)
+{
+    ULONGLONG ObjectAddr = 0;
+    PSYSTEM_HANDLE_INFORMATION_EX SystemHandleInfo;
+    ULONG i;
+    ULONG BufferLength = 0;
+    PVOID Buffer       = NULL;
+    NTSTATUS Status;
+
+    BufferLength = sizeof(PVOID);
+    Buffer       = RtlAllocateMemory(BufferLength);
+    Status       = STATUS_INFO_LENGTH_MISMATCH;
+
+    while (Status != STATUS_SUCCESS) {
+        Status = NtQuerySystemInformation(SystemExtendedHandleInformation, Buffer, BufferLength, &BufferLength);
+
+        if (Status == STATUS_INFO_LENGTH_MISMATCH) {
+            RtlFreeMemory(Buffer);
+            Buffer = RtlAllocateMemory(BufferLength);
+        }
+    }
+
+    SystemHandleInfo = Buffer;
+    for (i = 0; i < SystemHandleInfo->NumberOfHandles; ++i) {
+        if (SystemHandleInfo->Handles[i].UniqueProcessId == (ULONGLONG)NtCurrentTeb()->ClientId.UniqueProcess
+            && SystemHandleInfo->Handles[i].HandleValue == (ULONGLONG)ObjectHandle) {
+            ObjectAddr = (ULONGLONG)SystemHandleInfo->Handles[i].Object;
+            break;
+        }
+    }
+
+    RtlFreeMemory(Buffer);
+    return ObjectAddr;
+}
+
+BOOLEAN GetSystemModuleInformationA(_In_ LPCSTR ModuleName, _Out_ PRTL_PROCESS_MODULE_INFORMATION Result)
+{
+    ULONG BufferLength;
+    PVOID Buffer;
+    NTSTATUS Status;
+    BOOLEAN Success;
+    PRTL_PROCESS_MODULES ModuleList;
+    PCHAR BaseModuleName;
+    ANSI_STRING ModuleNameA;
+    ANSI_STRING BaseModuleNameA;
+
+    RtlZeroMemory(Result, sizeof(RTL_PROCESS_MODULE_INFORMATION));
+    BufferLength = sizeof(PVOID);
+    Buffer       = RtlAllocateMemory(BufferLength);
+    Status       = STATUS_INFO_LENGTH_MISMATCH;
+    Success      = FALSE;
+
+    while (Status != STATUS_SUCCESS) {
+        Status = NtQuerySystemInformation(SystemModuleInformation, Buffer, BufferLength, &BufferLength);
+
+        if (Status == STATUS_INFO_LENGTH_MISMATCH) {
+            RtlFreeMemory(Buffer);
+            Buffer = RtlAllocateMemory(BufferLength);
+        }
+    }
+
+    RtlInitString(&ModuleNameA, ModuleName);
+    ModuleList = (PRTL_PROCESS_MODULES)Buffer;
+    for (ULONG i = 0; i < ModuleList->NumberOfModules; i++) {
+        BaseModuleName = RtlOffsetToPointer(ModuleList->Modules[i].FullPathName, ModuleList->Modules[i].OffsetToFileName);
+        RtlInitString(&BaseModuleNameA, BaseModuleName);
+
+        if (RtlEqualString(&BaseModuleNameA, &ModuleNameA, TRUE) == TRUE) {
+            *Result = ModuleList->Modules[i];
+            Success = TRUE;
+            break;
+        }
+    }
+
+    if (Buffer) {
+        RtlFreeMemory(Buffer);
+        Buffer = NULL;
+    }
+
+    return Success;
+}

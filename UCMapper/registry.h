@@ -1,6 +1,7 @@
 #pragma once
 
-NTSTATUS RtlRegSetKeyValue(_In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _In_ ULONG Type, _In_reads_bytes_(BufferLength) PVOID Buffer, _In_ ULONG BufferLength);
+NTSTATUS RtlRegSetKeyValue(
+    _In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _In_ ULONG Type, _In_reads_bytes_(BufferLength) PVOID Buffer, _In_ ULONG BufferLength);
 NTSTATUS RtlRegGetKeyValue(_In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _Out_writes_bytes_(BufferLength) PVOID Buffer, _In_ ULONG BufferLength);
 NTSTATUS RtlRegDeleteKey(_In_ LPCWSTR RegistryPath);
 
