@@ -42,12 +42,21 @@ typedef PVOID (*MmMapLockedPagesSpecifyCache_t)(_Inout_ PVOID MemoryDescriptorLi
                                                 _In_ ULONG BugCheckOnFailure,
                                                 _In_ ULONG Priority);
 
-typedef NTSTATUS (*KeWaitForSingleObject_t)(
-    _In_ _Points_to_data_ PVOID Object, _In_ _Strict_type_match_ KWAIT_REASON WaitReason, _In_ __drv_strictType(KPROCESSOR_MODE / enum _MODE, __drv_typeConst) KPROCESSOR_MODE WaitMode, _In_ BOOLEAN Alertable, _In_opt_ PLARGE_INTEGER Timeout);
+typedef NTSTATUS (*KeWaitForSingleObject_t)(_In_ _Points_to_data_ PVOID Object,
+                                            _In_ _Strict_type_match_ KWAIT_REASON WaitReason,
+                                            _In_ __drv_strictType(KPROCESSOR_MODE / enum _MODE, __drv_typeConst) KPROCESSOR_MODE WaitMode,
+                                            _In_ BOOLEAN Alertable,
+                                            _In_opt_ PLARGE_INTEGER Timeout);
 typedef NTSTATUS (*KeDelayExecutionThread_t)(_In_ KPROCESSOR_MODE WaitMode, _In_ BOOLEAN Alertable, _In_ PLARGE_INTEGER Interval);
-typedef PVOID (*MmAllocatePagesForMdlEx_t)(PHYSICAL_ADDRESS LowAddress, PHYSICAL_ADDRESS HighAddress, PHYSICAL_ADDRESS SkipBytes, SIZE_T TotalBytes, MEMORY_CACHING_TYPE CacheType, ULONG Flags);
+typedef PVOID (*MmAllocatePagesForMdlEx_t)(
+    PHYSICAL_ADDRESS LowAddress, PHYSICAL_ADDRESS HighAddress, PHYSICAL_ADDRESS SkipBytes, SIZE_T TotalBytes, MEMORY_CACHING_TYPE CacheType, ULONG Flags);
 typedef PVOID (*RtlImageDirectoryEntryToData_t)(_In_ PVOID BaseOfImage, _In_ BOOLEAN MappedAsImage, _In_ USHORT DirectoryEntry, _Out_ PULONG Size);
-typedef NTSTATUS (*ObReferenceObjectByHandle_t)(_In_ HANDLE Handle, _In_ ACCESS_MASK DesiredAccess, _In_opt_ POBJECT_TYPE ObjectType, _In_ KPROCESSOR_MODE AccessMode, _Out_ PVOID* Object, _Out_opt_ PVOID HandleInformation);
+typedef NTSTATUS (*ObReferenceObjectByHandle_t)(_In_ HANDLE Handle,
+                                                _In_ ACCESS_MASK DesiredAccess,
+                                                _In_opt_ POBJECT_TYPE ObjectType,
+                                                _In_ KPROCESSOR_MODE AccessMode,
+                                                _Out_ PVOID* Object,
+                                                _Out_opt_ PVOID HandleInformation);
 typedef NTSTATUS (*ZwClose_t)(HANDLE);
 typedef NTSTATUS (*PsGetThreadExitStatus_t)(_In_ PVOID Thread);
 typedef LONG_PTR (*ObfDereferenceObject_t)(_In_ PVOID Object);

@@ -138,3 +138,75 @@ VOID ExFreePool(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ ULONGLONG Pointer)
         UnhookSystemRoutine(Driver, buffer);
     }
 }
+
+VOID ExReleaseResourceLite(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID Resource)
+{
+    typedef VOID (*ROUTINE_TYPE)(PVOID);
+    ROUTINE_TYPE Routine;
+    ULONGLONG Address;
+    UCHAR buffer[12];
+
+    Address = GetSystemRoutineAddressW(L"ExReleaseResourceLite");
+    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
+        Routine = (ROUTINE_TYPE)NtSetEaFile;
+        Routine(Resource);
+        UnhookSystemRoutine(Driver, buffer);
+    }
+}
+
+BOOLEAN ExAcquireResourceExclusiveLite(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID Resource, _In_ BOOLEAN Wait)
+{
+    typedef BOOLEAN (*ROUTINE_TYPE)(PVOID, BOOLEAN);
+    ROUTINE_TYPE Routine;
+    BOOLEAN Result;
+    ULONGLONG Address;
+    UCHAR buffer[12];
+
+    Result  = FALSE;
+    Address = GetSystemRoutineAddressW(L"ExAcquireResourceExclusiveLite");
+    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
+        Routine = (ROUTINE_TYPE)NtSetEaFile;
+        Result  = Routine(Resource, Wait);
+        UnhookSystemRoutine(Driver, buffer);
+    }
+
+    return Result;
+}
+
+BOOLEAN KiRtlDeleteElementGenericTableAvl(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PRTL_AVL_TABLE Table, _In_ PVOID Buffer)
+{
+    typedef BOOLEAN (*ROUTINE_TYPE)(PRTL_AVL_TABLE, PVOID);
+    ROUTINE_TYPE Routine;
+    BOOLEAN Result;
+    ULONGLONG Address;
+    UCHAR buffer[12];
+
+    Result  = FALSE;
+    Address = GetSystemRoutineAddressW(L"RtlDeleteElementGenericTableAvl");
+    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
+        Routine = (ROUTINE_TYPE)NtSetEaFile;
+        Result  = Routine(Table, Buffer);
+        UnhookSystemRoutine(Driver, buffer);
+    }
+
+    return Result;
+}
+
+PVOID KiRtlLookupElementGenericTableAvl(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PRTL_AVL_TABLE Table, _In_ PVOID Buffer)
+{
+    typedef PVOID (*ROUTINE_TYPE)(PRTL_AVL_TABLE, PVOID);
+    ROUTINE_TYPE Routine;
+    PVOID Result;
+    ULONGLONG Address;
+    UCHAR buffer[12];
+
+    Result  = FALSE;
+    Address = GetSystemRoutineAddressW(L"RtlLookupElementGenericTableAvl");
+    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
+        Routine = (ROUTINE_TYPE)NtSetEaFile;
+        Result  = Routine(Table, Buffer);
+        UnhookSystemRoutine(Driver, buffer);
+    }
+
+    return Result;
+}

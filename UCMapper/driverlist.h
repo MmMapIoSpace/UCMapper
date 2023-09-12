@@ -75,3 +75,5 @@ METHOD_DECLARE_STRUCTURE(MP_DRIVERS_INFO)
     LIST_ENTRY RuntimeDriversList;
     LONGLONG field_C8;
 };
+
+BOOLEAN RemoveDriverRuntimeList(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPCWSTR DriverName, _In_ ULONG TimedateStamps);
