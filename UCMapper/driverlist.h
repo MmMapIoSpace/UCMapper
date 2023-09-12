@@ -10,12 +10,14 @@
 
 METHOD_DECLARE_STRUCTURE(PIDDB_CACHE_ENTRY)
 {
+    //
+    // These fields are used as matching critereon for cache lookup.
+    //
     LIST_ENTRY List;
-    UNICODE_STRING DriverName;
-    ULONG TimeDateStamp;
-    NTSTATUS LoadStatus;
-    CHAR _0x0028[16]; // data from the shim engine, or uninitialized memory for
-                      // custom drivers
+    UNICODE_STRING DriverName; // Driver name
+    ULONG TimeDateStamp;       // Link date of the driver
+    NTSTATUS Status;           // Status from the DDB lookup
+    GUID Guid;
 };
 
 METHOD_DECLARE_STRUCTURE(HASH_BUCKET_ENTRY)
@@ -30,7 +32,7 @@ METHOD_DECLARE_STRUCTURE(MM_UNLOADED_DRIVER)
     UNICODE_STRING Name;
     PVOID ModuleStart;
     PVOID ModuleEnd;
-    ULONG64 UnloadTime;
+    ULONGLONG UnloadTime;
 };
 
 METHOD_DECLARE_STRUCTURE(MP_RUNTIME_DRIVERS)
@@ -41,16 +43,16 @@ METHOD_DECLARE_STRUCTURE(MP_RUNTIME_DRIVERS)
     UNICODE_STRING CertPublisher;
     UNICODE_STRING CertIssuer;
     PVOID ImageHash;
-    INT ImageHashAlgorithm;
-    INT ImageHashLength;
+    ULONG ImageHashAlgorithm;
+    ULONG ImageHashLength;
     PVOID CertThumbprint;
-    INT ThumbprintHashAlgorithm;
-    INT CertificateThumbprintLength;
+    ULONG ThumbprintHashAlgorithm;
+    ULONG CertificateThumbprintLength;
     PVOID ImageBase;
-    INT64 ImageSize;
-    INT ImageFlags;
-    INT DriverClassification;
-    INT ModuleEntryEnd;
+    SIZE_T ImageSize;
+    ULONG ImageFlags;
+    ULONG DriverClassification;
+    ULONG ModuleEntryEnd;
 };
 
 METHOD_DECLARE_STRUCTURE(MP_DRIVERS_INFO)
