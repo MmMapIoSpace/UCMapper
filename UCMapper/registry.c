@@ -1,31 +1,47 @@
 #include "main.h"
 
 NTSTATUS RtlRegSetKeyValue(
-    _In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _In_ ULONG Type, _In_reads_bytes_(BufferLength) PVOID Buffer, _In_ ULONG BufferLength)
+    _In_ LPCWSTR RegistryPath,
+    _In_ LPCWSTR Valuename,
+    _In_ ULONG Type,
+    _In_reads_bytes_(BufferLength) PVOID Buffer,
+    _In_ ULONG BufferLength)
 {
     HANDLE RegistryHandle;
-    UNICODE_STRING unicodeString;
-    NTSTATUS status;
+    UNICODE_STRING UnicodeString;
+    NTSTATUS Status;
     OBJECT_ATTRIBUTES objectAttributes;
 
-    RtlInitUnicodeString(&unicodeString, RegistryPath);
-    InitializeObjectAttributes(&objectAttributes, &unicodeString, OBJ_CASE_INSENSITIVE, NULL, NULL);
-    status = NtOpenKey(&RegistryHandle, KEY_ALL_ACCESS, &objectAttributes);
-    if NT_ERROR (status) {
-        status = NtCreateKey(&RegistryHandle, KEY_ALL_ACCESS, &objectAttributes, 0, NULL, REG_OPTION_VOLATILE, NULL);
+    RtlInitUnicodeString(&UnicodeString, RegistryPath);
+    InitializeObjectAttributes(&objectAttributes, &UnicodeString, OBJ_CASE_INSENSITIVE, NULL, NULL);
+    Status = NtOpenKey(&RegistryHandle, KEY_ALL_ACCESS, &objectAttributes);
+
+    if NT_ERROR (Status) {
+        Status = NtCreateKey(
+            &RegistryHandle,
+            KEY_ALL_ACCESS,
+            &objectAttributes,
+            0,
+            NULL,
+            REG_OPTION_VOLATILE,
+            NULL);
     }
 
-    if NT_SUCCESS (status) {
-        RtlInitUnicodeString(&unicodeString, Valuename);
-        status = NtSetValueKey(RegistryHandle, &unicodeString, 0, Type, Buffer, BufferLength);
+    if NT_SUCCESS (Status) {
+        RtlInitUnicodeString(&UnicodeString, Valuename);
+        Status = NtSetValueKey(RegistryHandle, &UnicodeString, 0, Type, Buffer, BufferLength);
 
         NtClose(RegistryHandle);
     }
 
-    return status;
+    return Status;
 }
 
-NTSTATUS RtlRegGetKeyValue(_In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _Out_writes_bytes_(BufferLength) PVOID Buffer, _In_ ULONG BufferLength)
+NTSTATUS RtlRegGetKeyValue(
+    _In_ LPCWSTR RegistryPath,
+    _In_ LPCWSTR Valuename,
+    _Out_writes_bytes_(BufferLength) PVOID Buffer,
+    _In_ ULONG BufferLength)
 {
     UNICODE_STRING UnicodeString;
     OBJECT_ATTRIBUTES ObjectAttributes;
@@ -38,15 +54,27 @@ NTSTATUS RtlRegGetKeyValue(_In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, _O
     ResultLength = 0;
 
     RtlInitUnicodeString(&UnicodeString, RegistryPath);
-    InitializeObjectAttributes(&ObjectAttributes, &UnicodeString, (OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE), NULL, NULL);
+    InitializeObjectAttributes(
+        &ObjectAttributes,
+        &UnicodeString,
+        (OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE),
+        NULL,
+        NULL);
 
     Status = NtOpenKey(&RegistryHandle, KEY_ALL_ACCESS, &ObjectAttributes);
+
     if NT_SUCCESS (Status) {
         RtlInitUnicodeString(&UnicodeString, Valuename);
         PartialInformationSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + BufferLength - 1;
         PartialInformation     = RtlAllocateMemory(PartialInformationSize);
 
-        Status = NtQueryValueKey(RegistryHandle, &UnicodeString, KeyValuePartialInformation, PartialInformation, PartialInformationSize, &ResultLength);
+        Status = NtQueryValueKey(
+            RegistryHandle,
+            &UnicodeString,
+            KeyValuePartialInformation,
+            PartialInformation,
+            PartialInformationSize,
+            &ResultLength);
 
         if NT_SUCCESS (Status)
             RtlCopyMemory(Buffer, PartialInformation->Data, PartialInformation->DataLength);
@@ -65,7 +93,8 @@ NTSTATUS RtlRegDeleteKey(_In_ LPCWSTR RegistryPath)
     NTSTATUS status;
 
     RtlInitUnicodeString(&unicodeString, RegistryPath);
-    OBJECT_ATTRIBUTES objectAttributes = RTL_CONSTANT_OBJECT_ATTRIBUTES(&unicodeString, OBJ_CASE_INSENSITIVE);
+    OBJECT_ATTRIBUTES objectAttributes
+        = RTL_CONSTANT_OBJECT_ATTRIBUTES(&unicodeString, OBJ_CASE_INSENSITIVE);
 
     status = NtOpenKey(&RegistryHandle, KEY_ALL_ACCESS, &objectAttributes);
     if NT_SUCCESS (status) {

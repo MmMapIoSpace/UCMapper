@@ -7,8 +7,9 @@
 //IDA: "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B C3 48 83 C4"
 //"\x48\x8D\x0D\xCC\xCC\xCC\xCC\xE8\xCC\xCC\xCC\xCC\xE8\xCC\xCC\xCC\xCC\x8B\xC3\x48\x83\xC4", "xxx????x????x????xxxxx"
 
-static UCHAR PiDDBLockPattern[] = "\x48\x8D\x0D\xCC\xCC\xCC\xCC\xE8\xCC\xCC\xCC\xCC\xE8\xCC\xCC\xCC\xCC\x8B\xC3\x48\x83\xC4";
-static CHAR PiDDBLockMask[]     = "xxx????x????x????xxxxx";
+static UCHAR PiDDBLockPattern[]
+    = "\x48\x8D\x0D\xCC\xCC\xCC\xCC\xE8\xCC\xCC\xCC\xCC\xE8\xCC\xCC\xCC\xCC\x8B\xC3\x48\x83\xC4";
+static CHAR PiDDBLockMask[] = "xxx????x????x????xxxxx";
 
 //SigMakerEx: Finding signature for 0000000074DFB2.
 //Address SIG: 0x0000000074DFB2, 14 bytes 4, wildcards.
@@ -17,19 +18,22 @@ static CHAR PiDDBLockMask[]     = "xxx????x????x????xxxxx";
 
 static UCHAR PiDDBCacheTablePattern[] = "\x48\x8D\x0D\xCC\xCC\xCC\xCC\x45\x33\xF6\x48\x89\x44\x24";
 static CHAR PiDDBCacheTableMask[]     = "xxx????xxxxxxx";
-static UCHAR HashBucketListPattern[]  = "\x48\x8B\x1D\x00\x00\x00\x00\xEB\x00\xF7\x43\x40\x00\x20\x00\x00";
-static CHAR HashBucketListMask[]      = "xxx????x?xxxxxxx";
-static UCHAR HashCacheLockPattern[]   = "\x48\x8D\x0D";
-static CHAR HashCacheLockMask[]       = "xxx";
+static UCHAR HashBucketListPattern[]
+    = "\x48\x8B\x1D\x00\x00\x00\x00\xEB\x00\xF7\x43\x40\x00\x20\x00\x00";
+static CHAR HashBucketListMask[]    = "xxx????x?xxxxxxx";
+static UCHAR HashCacheLockPattern[] = "\x48\x8D\x0D";
+static CHAR HashCacheLockMask[]     = "xxx";
 #endif
-
-#define Log(_Format, ...) wprintf_s(L##_Format L"\r\n", __VA_ARGS__)
 
 //
 // Utility
 //
 
-PVOID MiFindPattern(_In_reads_bytes_(Length) PVOID BaseAddress, _In_ SIZE_T Length, _In_ PUCHAR Pattern, _In_ PCHAR Mask)
+PVOID MiFindPattern(
+    _In_reads_bytes_(Length) PVOID BaseAddress,
+    _In_ SIZE_T Length,
+    _In_ PUCHAR Pattern,
+    _In_ PCHAR Mask)
 {
     ANSI_STRING v1;
     PVOID v2;
@@ -59,7 +63,12 @@ PVOID MiFindPattern(_In_reads_bytes_(Length) PVOID BaseAddress, _In_ SIZE_T Leng
     return v2;
 }
 
-PVOID KiFindPattern(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID BaseAddress, _In_ SIZE_T Length, _In_ PUCHAR Pattern, _In_ PCHAR Mask)
+PVOID KiFindPattern(
+    _In_ PDEVICE_DRIVER_OBJECT Driver,
+    _In_ PVOID BaseAddress,
+    _In_ SIZE_T Length,
+    _In_ PUCHAR Pattern,
+    _In_ PCHAR Mask)
 {
     ULONGLONG v1 = 0;
     PVOID v2     = RtlAllocateMemory(Length);
@@ -78,12 +87,20 @@ PVOID KiFindPattern(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID BaseAddress, _
     return (PVOID)v1;
 }
 
-PVOID KiRelativeVirtualAddress(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID Address, _In_ LONG Offsets, _In_ SIZE_T Size)
+PVOID KiRelativeVirtualAddress(
+    _In_ PDEVICE_DRIVER_OBJECT Driver,
+    _In_ PVOID Address,
+    _In_ LONG Offsets,
+    _In_ SIZE_T Size)
 {
     LONG VA        = 0;
     PVOID Resolved = 0;
 
-    if NT_SUCCESS (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)Address + Offsets, &VA, sizeof(LONG))) {
+    if NT_SUCCESS (Driver->ReadMemory(
+                       Driver->DeviceHandle,
+                       (ULONGLONG)Address + Offsets,
+                       &VA,
+                       sizeof(LONG))) {
         Resolved = (PVOID)((ULONGLONG)Address + Size + VA);
     }
 
@@ -102,48 +119,76 @@ BOOLEAN MmUnloadedDriver(_In_ PDEVICE_DRIVER_OBJECT Driver)
     ULONGLONG DriverSection;
     UNICODE_STRING BaseDllName;
     WCHAR DriverName[MAX_PATH];
+    NTSTATUS Status;
 
-    ProcessAddr = GetObjectByHandle(Driver->DeviceHandle);
-    if (ProcessAddr) {
+    Status = ObGetObjectByHandle(Driver->DeviceHandle, &ProcessAddr);
+
+    if NT_SUCCESS (Status) {
         RtlSecureZeroMemory(DriverName, sizeof(DriverName));
-        if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, ProcessAddr + 0x8, &DeviceObject, sizeof(DeviceObject)) || !DeviceObject) {
-            Log("[!] Failed to find DeviceObject");
+        if NT_ERROR (
+            Driver->ReadMemory(
+                Driver->DeviceHandle,
+                ProcessAddr + 0x8,
+                &DeviceObject,
+                sizeof(DeviceObject))
+            || !DeviceObject) {
+            DEBUG_PRINT("[!] Failed to find DeviceObject");
             return FALSE;
         }
 
-        if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, DeviceObject + offsetof(DEVICE_OBJECT, DriverObject), &DriverObject, sizeof(DriverObject))
-                     || !DriverObject) {
-            Log("[!] Failed to find DriverObject");
+        if NT_ERROR (
+            Driver->ReadMemory(
+                Driver->DeviceHandle,
+                DeviceObject + offsetof(DEVICE_OBJECT, DriverObject),
+                &DriverObject,
+                sizeof(DriverObject))
+            || !DriverObject) {
+            DEBUG_PRINT("[!] Failed to find DriverObject");
             return FALSE;
         }
 
-        if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, DriverObject + offsetof(DRIVER_OBJECT, DriverSection), &DriverSection, sizeof(DriverSection))
-                     || !DriverSection) {
-            Log("[!] Failed to find DriverSection");
+        if NT_ERROR (
+            Driver->ReadMemory(
+                Driver->DeviceHandle,
+                DriverObject + offsetof(DRIVER_OBJECT, DriverSection),
+                &DriverSection,
+                sizeof(DriverSection))
+            || !DriverSection) {
+            DEBUG_PRINT("[!] Failed to find DriverSection");
             return FALSE;
         }
 
-        if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, DriverSection + offsetof(LDR_DATA_TABLE_ENTRY, BaseDllName), &BaseDllName, sizeof(BaseDllName))
-                     || BaseDllName.Length == 0) {
-            Log("[!] Failed to find DriverName");
+        if NT_ERROR (
+            Driver->ReadMemory(
+                Driver->DeviceHandle,
+                DriverSection + offsetof(LDR_DATA_TABLE_ENTRY, BaseDllName),
+                &BaseDllName,
+                sizeof(BaseDllName))
+            || BaseDllName.Length == 0) {
+            DEBUG_PRINT("[!] Failed to find DriverName");
             return FALSE;
         }
 
-        if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)BaseDllName.Buffer, DriverName, BaseDllName.Length)) {
-            Log("[!] Failed to read DriverName");
+        if NT_ERROR (Driver->ReadMemory(
+                         Driver->DeviceHandle,
+                         (ULONGLONG)BaseDllName.Buffer,
+                         DriverName,
+                         BaseDllName.Length)) {
+            DEBUG_PRINT("[!] Failed to read DriverName");
             return FALSE;
         }
 
-        Log("[+] Found %ws on Ldr Table Entry.", DriverName);
+        DEBUG_PRINT("[+] Found %ws on Ldr Table Entry.", DriverName);
         // MiRememberUnloadedDriver will check
         // if the length > 0 to save the unloaded
         // driver
         BaseDllName.Length = 0;
-        if NT_ERROR (Driver->WriteMemory(Driver->DeviceHandle,
-                                         DriverSection + offsetof(LDR_DATA_TABLE_ENTRY, BaseDllName),
-                                         &BaseDllName,
-                                         sizeof(BaseDllName))) {
-            Log("[!] Failed to write driver name length");
+        if NT_ERROR (Driver->WriteMemory(
+                         Driver->DeviceHandle,
+                         DriverSection + offsetof(LDR_DATA_TABLE_ENTRY, BaseDllName),
+                         &BaseDllName,
+                         sizeof(BaseDllName))) {
+            DEBUG_PRINT("[!] Failed to write driver name length");
             return FALSE;
         }
 
@@ -153,7 +198,10 @@ BOOLEAN MmUnloadedDriver(_In_ PDEVICE_DRIVER_OBJECT Driver)
     return FALSE;
 }
 
-BOOLEAN PidDBCacheTable(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR DriverFilename, _In_ ULONG TimeDateStamp)
+BOOLEAN PidDBCacheTable(
+    _In_ PDEVICE_DRIVER_OBJECT Driver,
+    _In_ LPWSTR DriverFilename,
+    _In_ ULONG TimeDateStamp)
 {
     PVOID PiDDBLock;
     PRTL_AVL_TABLE PiDDBCacheTable;
@@ -163,19 +211,30 @@ BOOLEAN PidDBCacheTable(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR DriverFil
     CHAR v1[] = {'n', 't', 'o', 's', 'k', 'r', 'n', 'l', '.', 'e', 'x', 'e', '\0'};
 
     RtlZeroMemory(&KernelModule, sizeof(KernelModule));
-    GetSystemModuleInformationA(v1, &KernelModule);
-    RTL_ASSERT(KernelModule.ImageBase != NULL);
+    MmGetSystemModuleA(v1, &KernelModule);
 
-    PiDDBLock       = KiFindPattern(Driver, KernelModule.ImageBase, KernelModule.ImageSize, PiDDBLockPattern, PiDDBLockMask);
-    PiDDBCacheTable = KiFindPattern(Driver, KernelModule.ImageBase, KernelModule.ImageSize, PiDDBCacheTablePattern, PiDDBCacheTableMask);
+    PiDDBLock = KiFindPattern(
+        Driver,
+        KernelModule.ImageBase,
+        KernelModule.ImageSize,
+        PiDDBLockPattern,
+        PiDDBLockMask);
+
+    PiDDBCacheTable = KiFindPattern(
+        Driver,
+        KernelModule.ImageBase,
+        KernelModule.ImageSize,
+        PiDDBCacheTablePattern,
+        PiDDBCacheTableMask);
+
     if (PiDDBLock && PiDDBCacheTable) {
         PiDDBLock       = KiRelativeVirtualAddress(Driver, PiDDBLock, 3, 7);
         PiDDBCacheTable = KiRelativeVirtualAddress(Driver, PiDDBCacheTable, 3, 7);
     }
 
     if (PiDDBLock == 0 || PiDDBCacheTable == 0) {
-        Log("[-] PiDDBLock: 0x%p.", PiDDBLock);
-        Log("[-] PiDDBCacheTable: 0x%p.", PiDDBCacheTable);
+        DEBUG_PRINT("[-] PiDDBLock: 0x%p.", PiDDBLock);
+        DEBUG_PRINT("[-] PiDDBCacheTable: 0x%p.", PiDDBCacheTable);
 
         return FALSE;
     }
@@ -184,8 +243,8 @@ BOOLEAN PidDBCacheTable(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR DriverFil
     // context part is not used by lookup, lock or delete why we should use it?
     //
 
-    if (!ExAcquireResourceExclusiveLite(Driver, PiDDBLock, TRUE)) {
-        Log("[-] Can't lock PiDDBCacheTable");
+    if NT_ERROR (KiExAcquireResourceExclusiveLite(Driver, PiDDBLock, TRUE)) {
+        DEBUG_PRINT("[-] Can't lock PiDDBCacheTable");
         return FALSE;
     }
 
@@ -194,47 +253,61 @@ BOOLEAN PidDBCacheTable(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR DriverFil
     //
     LocalEntry.TimeDateStamp = TimeDateStamp;
     RtlInitUnicodeString(&LocalEntry.DriverName, DriverFilename);
-    pFoundEntry = KiRtlLookupElementGenericTableAvl(Driver, PiDDBCacheTable, &LocalEntry);
-    if (pFoundEntry == NULL) {
-        Log("[-] Not found in cache");
-        ExReleaseResourceLite(Driver, PiDDBLock);
+    if (NT_ERROR(
+            KiRtlLookupElementGenericTableAvl(Driver, PiDDBCacheTable, &LocalEntry, &pFoundEntry))
+        || pFoundEntry == NULL) {
+        DEBUG_PRINT("[-] Not found in cache");
+        KiExReleaseResourceLite(Driver, PiDDBLock);
         return FALSE;
     }
 
     // first, unlink from the list
     PLIST_ENTRY PreviousList = NULL;
-    if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle,
-                                    (ULONGLONG)pFoundEntry + FIELD_OFFSET(PIDDB_CACHE_ENTRY, List.Blink),
-                                    &PreviousList,
-                                    sizeof(PLIST_ENTRY))) {
-        Log("[-] Can't get prev entry");
-        ExReleaseResourceLite(Driver, PiDDBLock);
+    if NT_ERROR (Driver->ReadMemory(
+                     Driver->DeviceHandle,
+                     (ULONGLONG)pFoundEntry + FIELD_OFFSET(PIDDB_CACHE_ENTRY, List.Blink),
+                     &PreviousList,
+                     sizeof(PLIST_ENTRY))) {
+        DEBUG_PRINT("[-] Can't get prev entry");
+        KiExReleaseResourceLite(Driver, PiDDBLock);
         return FALSE;
     }
 
     PLIST_ENTRY next = NULL;
-    if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)pFoundEntry + FIELD_OFFSET(PIDDB_CACHE_ENTRY, List.Flink), &next, sizeof(PLIST_ENTRY))) {
-        Log("[-] Can't get next entry");
-        ExReleaseResourceLite(Driver, PiDDBLock);
+    if NT_ERROR (Driver->ReadMemory(
+                     Driver->DeviceHandle,
+                     (ULONGLONG)pFoundEntry + FIELD_OFFSET(PIDDB_CACHE_ENTRY, List.Flink),
+                     &next,
+                     sizeof(PLIST_ENTRY))) {
+        DEBUG_PRINT("[-] Can't get next entry");
+        KiExReleaseResourceLite(Driver, PiDDBLock);
         return FALSE;
     }
 
-    if NT_ERROR (Driver->WriteMemory(Driver->DeviceHandle, (ULONGLONG)PreviousList + FIELD_OFFSET(struct _LIST_ENTRY, Flink), &next, sizeof(PLIST_ENTRY))) {
-        Log("[-] Can't set next entry");
-        ExReleaseResourceLite(Driver, PiDDBLock);
+    if NT_ERROR (Driver->WriteMemory(
+                     Driver->DeviceHandle,
+                     (ULONGLONG)PreviousList + FIELD_OFFSET(struct _LIST_ENTRY, Flink),
+                     &next,
+                     sizeof(PLIST_ENTRY))) {
+        DEBUG_PRINT("[-] Can't set next entry");
+        KiExReleaseResourceLite(Driver, PiDDBLock);
         return FALSE;
     }
 
-    if NT_ERROR (Driver->WriteMemory(Driver->DeviceHandle, (ULONGLONG)next + FIELD_OFFSET(struct _LIST_ENTRY, Blink), &PreviousList, sizeof(PLIST_ENTRY))) {
-        Log("[-] Can't set prev entry");
-        ExReleaseResourceLite(Driver, PiDDBLock);
+    if NT_ERROR (Driver->WriteMemory(
+                     Driver->DeviceHandle,
+                     (ULONGLONG)next + FIELD_OFFSET(struct _LIST_ENTRY, Blink),
+                     &PreviousList,
+                     sizeof(PLIST_ENTRY))) {
+        DEBUG_PRINT("[-] Can't set prev entry");
+        KiExReleaseResourceLite(Driver, PiDDBLock);
         return FALSE;
     }
 
     // then delete the element from the avl table
-    if (!KiRtlDeleteElementGenericTableAvl(Driver, PiDDBCacheTable, pFoundEntry)) {
-        Log("[-] Can't delete from PiDDBCacheTable");
-        ExReleaseResourceLite(Driver, PiDDBLock);
+    if NT_ERROR (KiRtlDeleteElementGenericTableAvl(Driver, PiDDBCacheTable, pFoundEntry)) {
+        DEBUG_PRINT("[-] Can't delete from PiDDBCacheTable");
+        KiExReleaseResourceLite(Driver, PiDDBLock);
         return FALSE;
     }
 
@@ -243,14 +316,22 @@ BOOLEAN PidDBCacheTable(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR DriverFil
     //
 
     ULONG cacheDeleteCount = 0;
-    Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)PiDDBCacheTable + (FIELD_OFFSET(struct _RTL_AVL_TABLE, DeleteCount)), &cacheDeleteCount, sizeof(ULONG));
+
+    Driver->ReadMemory(
+        Driver->DeviceHandle,
+        (ULONGLONG)PiDDBCacheTable + (FIELD_OFFSET(struct _RTL_AVL_TABLE, DeleteCount)),
+        &cacheDeleteCount,
+        sizeof(ULONG));
+
     if (cacheDeleteCount > 0) {
         cacheDeleteCount--;
-        if NT_ERROR (Driver->WriteMemory(Driver->DeviceHandle,
-                                         (ULONGLONG)PiDDBCacheTable + (FIELD_OFFSET(struct _RTL_AVL_TABLE, DeleteCount)),
-                                         &cacheDeleteCount,
-                                         sizeof(ULONG))) {
-            Log("[-] Failed WriteSystemMemory to cacheDeleteCount.");
+        if NT_ERROR (Driver->WriteMemory(
+                         Driver->DeviceHandle,
+                         (ULONGLONG)PiDDBCacheTable
+                             + (FIELD_OFFSET(struct _RTL_AVL_TABLE, DeleteCount)),
+                         &cacheDeleteCount,
+                         sizeof(ULONG))) {
+            DEBUG_PRINT("[-] Failed WriteSystemMemory to cacheDeleteCount.");
         }
     }
 
@@ -258,8 +339,8 @@ BOOLEAN PidDBCacheTable(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR DriverFil
     // release the ddb resource lock
     //
 
-    ExReleaseResourceLite(Driver, PiDDBLock);
-    Log("[+] PidDb Cleaned.");
+    KiExReleaseResourceLite(Driver, PiDDBLock);
+    DEBUG_PRINT("[+] PidDb Cleaned.");
     return TRUE;
 }
 
@@ -269,36 +350,52 @@ BOOLEAN KernelHashBucketList(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR Driv
     CHAR v1[] = {'c', 'i', '.', 'd', 'l', 'l', '\0'};
 
 
-    if (GetSystemModuleInformationA(v1, &ModuleInformation) == FALSE)
+    if NT_ERROR (MmGetSystemModuleA(v1, &ModuleInformation))
         return FALSE;
 
     // Thanks @KDIo3 and @Swiftik from UnknownCheats
-    PVOID HashBucketList = KiFindPattern(Driver, ModuleInformation.ImageBase, ModuleInformation.ImageSize, HashBucketListPattern, HashBucketListMask);
-    PVOID HashBucketLock = KiFindPattern(Driver, (PCHAR)HashBucketList - 50, 50, HashCacheLockPattern, HashCacheLockMask);
+    PVOID HashBucketList = KiFindPattern(
+        Driver,
+        ModuleInformation.ImageBase,
+        ModuleInformation.ImageSize,
+        HashBucketListPattern,
+        HashBucketListMask);
+
+    PVOID HashBucketLock = KiFindPattern(
+        Driver,
+        (PCHAR)HashBucketList - 50,
+        50,
+        HashCacheLockPattern,
+        HashCacheLockMask);
+
     if (HashBucketList && HashBucketLock) {
         HashBucketList = KiRelativeVirtualAddress(Driver, HashBucketList, 3, 7);
         HashBucketLock = KiRelativeVirtualAddress(Driver, HashBucketLock, 3, 7);
     }
 
     if (!HashBucketList || !HashBucketLock) {
-        Log("[-] HashBucketList: 0x%p.", HashBucketList);
-        Log("[-] HashBucketLock: 0x%p.", HashBucketLock);
+        DEBUG_PRINT("[-] HashBucketList: 0x%p.", HashBucketList);
+        DEBUG_PRINT("[-] HashBucketLock: 0x%p.", HashBucketLock);
         return FALSE;
     }
 
-    if (ExAcquireResourceExclusiveLite(Driver, HashBucketLock, TRUE) == TRUE) {
+    if NT_SUCCESS (KiExAcquireResourceExclusiveLite(Driver, HashBucketLock, TRUE)) {
         PHASH_BUCKET_ENTRY HashBucketPrev  = HashBucketList;
         PHASH_BUCKET_ENTRY HashBucketEntry = NULL;
 
-        if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)HashBucketPrev, &HashBucketEntry, sizeof(HashBucketEntry))) {
-            Log("[-] Failed to read first HashBucketEntry: 0x%p.", HashBucketEntry);
-            ExReleaseResourceLite(Driver, HashBucketLock);
+        if NT_ERROR (Driver->ReadMemory(
+                         Driver->DeviceHandle,
+                         (ULONGLONG)HashBucketPrev,
+                         &HashBucketEntry,
+                         sizeof(HashBucketEntry))) {
+            DEBUG_PRINT("[-] Failed to read first HashBucketEntry: 0x%p.", HashBucketEntry);
+            KiExReleaseResourceLite(Driver, HashBucketLock);
             return FALSE;
         }
 
         if (!HashBucketEntry) {
-            Log("[!] g_KernelHashBucketList looks empty!");
-            ExReleaseResourceLite(Driver, HashBucketLock);
+            DEBUG_PRINT("[!] g_KernelHashBucketList looks empty!");
+            KiExReleaseResourceLite(Driver, HashBucketLock);
             return TRUE;
         }
 
@@ -307,34 +404,50 @@ BOOLEAN KernelHashBucketList(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR Driv
             HASH_BUCKET_ENTRY HashBucket;
             LPWSTR lpDriverName;
 
-            if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)HashBucketEntry, &HashBucket, sizeof(HashBucket))) {
-                Log("[-] Failed reading HashBucketEntry.");
+            if NT_ERROR (Driver->ReadMemory(
+                             Driver->DeviceHandle,
+                             (ULONGLONG)HashBucketEntry,
+                             &HashBucket,
+                             sizeof(HashBucket))) {
+                DEBUG_PRINT("[-] Failed reading HashBucketEntry.");
                 break;
             }
 
             lpDriverName = RtlAllocateMemory(HashBucket.DriverName.MaximumLength);
-            if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)HashBucket.DriverName.Buffer, lpDriverName, HashBucket.DriverName.Length)) {
-                Log("[-] Failed reading HashBucketEntry DriverName.");
+            if NT_ERROR (Driver->ReadMemory(
+                             Driver->DeviceHandle,
+                             (ULONGLONG)HashBucket.DriverName.Buffer,
+                             lpDriverName,
+                             HashBucket.DriverName.Length)) {
+                DEBUG_PRINT("[-] Failed reading HashBucketEntry DriverName.");
                 RtlFreeMemory(lpDriverName);
                 break;
             }
 
             if (wcsstr(lpDriverName, DriverFilename)) {
-                if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)HashBucketEntry, &HashBucketNext, sizeof(HashBucketNext))) {
-                    Log("[-] Failed reading HashBucketEntry Next Entry.");
+                if NT_ERROR (Driver->ReadMemory(
+                                 Driver->DeviceHandle,
+                                 (ULONGLONG)HashBucketEntry,
+                                 &HashBucketNext,
+                                 sizeof(HashBucketNext))) {
+                    DEBUG_PRINT("[-] Failed reading HashBucketEntry Next Entry.");
                     RtlFreeMemory(lpDriverName);
                     break;
                 }
 
-                if NT_ERROR (Driver->WriteMemory(Driver->DeviceHandle, (ULONGLONG)HashBucketPrev, &HashBucketNext, sizeof(HashBucketNext))) {
-                    Log("[-] Failed unlinking HashBucketEntry.");
+                if NT_ERROR (Driver->WriteMemory(
+                                 Driver->DeviceHandle,
+                                 (ULONGLONG)HashBucketPrev,
+                                 &HashBucketNext,
+                                 sizeof(HashBucketNext))) {
+                    DEBUG_PRINT("[-] Failed unlinking HashBucketEntry.");
                     RtlFreeMemory(lpDriverName);
                     break;
                 }
 
-                Log("[+] HashBucketEntry of %ws has been Cleaned.", lpDriverName);
-                ExFreePool(Driver, (ULONGLONG)HashBucketEntry);
-                ExReleaseResourceLite(Driver, HashBucketLock);
+                DEBUG_PRINT("[+] HashBucketEntry of %ws has been Cleaned.", lpDriverName);
+                KiExFreePool(Driver, (ULONGLONG)HashBucketEntry);
+                KiExReleaseResourceLite(Driver, HashBucketLock);
                 RtlFreeMemory(lpDriverName);
                 return TRUE;
             }
@@ -343,13 +456,19 @@ BOOLEAN KernelHashBucketList(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR Driv
 
             // Read Next
             HashBucketPrev = HashBucketEntry;
-            if NT_ERROR (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)HashBucketEntry, &HashBucketEntry, sizeof(HashBucketEntry))) {
-                Log("[-] Failed to read HashBucketEntry next entry: 0x%p.", HashBucketEntry);
+            if NT_ERROR (Driver->ReadMemory(
+                             Driver->DeviceHandle,
+                             (ULONGLONG)HashBucketEntry,
+                             &HashBucketEntry,
+                             sizeof(HashBucketEntry))) {
+                DEBUG_PRINT(
+                    "[-] Failed to read HashBucketEntry next entry: 0x%p.",
+                    HashBucketEntry);
                 break;
             }
         }
 
-        ExReleaseResourceLite(Driver, HashBucketLock);
+        KiExReleaseResourceLite(Driver, HashBucketLock);
     }
 
     return FALSE;
@@ -359,7 +478,10 @@ BOOLEAN KernelHashBucketList(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR Driv
 // Public api
 //
 
-BOOLEAN RemoveDriverRuntimeList(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPCWSTR DriverName, _In_ ULONG TimedateStamps)
+BOOLEAN RemoveDriverRuntimeList(
+    _In_ PDEVICE_DRIVER_OBJECT Driver,
+    _In_ LPCWSTR DriverName,
+    _In_ ULONG TimedateStamps)
 {
     BOOLEAN v1;
 

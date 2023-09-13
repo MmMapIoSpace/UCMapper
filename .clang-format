@@ -1,7 +1,7 @@
 ---
 BasedOnStyle: Microsoft
 AccessModifierOffset: -2
-AlignAfterOpenBracket: Align
+AlignAfterOpenBracket: AlwaysBreak
 AlignArrayOfStructures: Left
 AlignConsecutiveAssignments:
   Enabled: true
@@ -33,7 +33,7 @@ AlignTrailingComments:
   Kind: Always
   OverEmptyLines: 0
 AllowAllArgumentsOnNextLine: false
-AllowAllParametersOfDeclarationOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: false
@@ -60,7 +60,7 @@ BraceWrapping:
   AfterObjCDeclaration: false
   AfterStruct: true
   AfterUnion: true
-  AfterExternBlock: true
+  AfterExternBlock: false
   BeforeCatch: false
   BeforeElse: false
   BeforeLambdaBody: false
@@ -80,7 +80,7 @@ BreakBeforeTernaryOperators: false
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
 BreakStringLiterals: true
-ColumnLimit: 160
+ColumnLimit: 100
 CommentPragmas: "^ IWYU pragma:"
 CompactNamespaces: false
 ConstructorInitializerIndentWidth: 2

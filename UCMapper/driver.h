@@ -1,14 +1,37 @@
 #pragma once
 
-extern ULONGLONG NvaudioDriver[5517];
+extern ULONGLONG DriverResource[5517];
 
-NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle, _In_ LPCWSTR DriverFullPath, _In_ LPCWSTR ServiceName, _In_ LPCWSTR DeviceName);
-NTSTATUS UnloadDriver(_In_ HANDLE DeviceHandle, _In_ LPCWSTR ServiceName);
-NTSTATUS ReadSystemMemory(_In_ HANDLE DeviceHandle, _In_ ULONGLONG Source, _Out_writes_bytes_(Length) PVOID Destination, _In_ SIZE_T Length);
-NTSTATUS WriteSystemMemory(_In_ HANDLE DeviceHandle, _In_ ULONGLONG Destination, _In_reads_bytes_(Length) PVOID Source, _In_ SIZE_T Length);
+NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle);
+NTSTATUS UnloadDriver(_In_ HANDLE DeviceHandle);
 
-typedef NTSTATUS (*PFN_READSYSTEMMEMORY)(_In_ HANDLE DeviceHandle, _In_ ULONGLONG Source, _Out_writes_bytes_(Length) PVOID Destination, _In_ SIZE_T Length);
-typedef NTSTATUS (*PFN_WRITESYSTEMMEMORY)(_In_ HANDLE DeviceHandle, _In_ ULONGLONG Destination, _In_reads_bytes_(Length) PVOID Source, _In_ SIZE_T Length);
+
+NTSTATUS ReadSystemMemory(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG Source,
+    _Out_writes_bytes_(Length) PVOID Destination,
+    _In_ SIZE_T Length);
+
+
+NTSTATUS WriteSystemMemory(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG Destination,
+    _In_reads_bytes_(Length) PVOID Source,
+    _In_ SIZE_T Length);
+
+
+typedef NTSTATUS (*PFN_READSYSTEMMEMORY)(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG Source,
+    _Out_writes_bytes_(Length) PVOID Destination,
+    _In_ SIZE_T Length);
+
+
+typedef NTSTATUS (*PFN_WRITESYSTEMMEMORY)(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG Destination,
+    _In_reads_bytes_(Length) PVOID Source,
+    _In_ SIZE_T Length);
 
 typedef struct _DEVICE_DRIVER_OBJECT
 {

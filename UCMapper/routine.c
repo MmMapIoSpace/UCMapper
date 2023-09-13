@@ -1,137 +1,24 @@
 #include "main.h"
 
-ULONGLONG GetSystemModuleBaseA(_In_ LPCSTR ModuleName)
+NTSTATUS ObGetObjectByHandle(_In_ HANDLE Handle, _Out_ PULONGLONG Pointer)
 {
-    ULONG BufferLength;
-    PVOID Buffer;
-    NTSTATUS Status;
-    ULONGLONG SystemModuleBase;
-    PRTL_PROCESS_MODULES ModuleList;
-    PCHAR BaseModuleName;
-    ANSI_STRING ModuleNameA;
-    ANSI_STRING BaseModuleNameA;
-
-    BufferLength     = sizeof(PVOID);
-    Buffer           = RtlAllocateMemory(BufferLength);
-    Status           = STATUS_INFO_LENGTH_MISMATCH;
-    SystemModuleBase = 0;
-
-    while (Status != STATUS_SUCCESS) {
-        Status = NtQuerySystemInformation(SystemModuleInformation, Buffer, BufferLength, &BufferLength);
-
-        if (Status == STATUS_INFO_LENGTH_MISMATCH) {
-            RtlFreeMemory(Buffer);
-            Buffer = RtlAllocateMemory(BufferLength);
-        }
-    }
-
-    RtlInitString(&ModuleNameA, ModuleName);
-    ModuleList = (PRTL_PROCESS_MODULES)Buffer;
-    for (ULONG i = 0; i < ModuleList->NumberOfModules; i++) {
-        BaseModuleName = RtlOffsetToPointer(ModuleList->Modules[i].FullPathName, ModuleList->Modules[i].OffsetToFileName);
-        RtlInitString(&BaseModuleNameA, BaseModuleName);
-
-        if (RtlEqualString(&BaseModuleNameA, &ModuleNameA, TRUE) == TRUE) {
-            SystemModuleBase = (ULONGLONG)ModuleList->Modules[i].ImageBase;
-            break;
-        }
-    }
-
-    if (Buffer) {
-        RtlFreeMemory(Buffer);
-        Buffer = NULL;
-    }
-
-    return SystemModuleBase;
-}
-
-ULONGLONG GetSystemModuleBaseW(_In_ LPCWSTR ModuleName)
-{
-    ULONGLONG Destination;
-    ANSI_STRING AnsiString;
-    UNICODE_STRING UnicodeString;
-
-    Destination = 0;
-
-    RtlInitUnicodeString(&UnicodeString, ModuleName);
-    if NT_SUCCESS (RtlUnicodeStringToAnsiString(&AnsiString, &UnicodeString, TRUE)) {
-        Destination = GetSystemModuleBaseA(AnsiString.Buffer);
-        RtlFreeAnsiString(&AnsiString);
-    }
-    return Destination;
-}
-
-ULONGLONG GetSystemRoutineAddressA(_In_ LPCSTR RoutineName)
-{
-    UNICODE_STRING unicodeString;
-    ULONGLONG ImageBase;
-    NTSTATUS status;
-    ULONGLONG Address;
-    WCHAR moduleName[13];
-    moduleName[0]  = L'n';
-    moduleName[1]  = L't';
-    moduleName[2]  = L'o';
-    moduleName[3]  = L's';
-    moduleName[4]  = L'k';
-    moduleName[5]  = L'r';
-    moduleName[6]  = L'n';
-    moduleName[7]  = L'l';
-    moduleName[8]  = L'.';
-    moduleName[9]  = L'e';
-    moduleName[10] = L'x';
-    moduleName[11] = L'e';
-    moduleName[12] = L'\0';
-
-    RtlInitUnicodeString(&unicodeString, moduleName);
-    status = LdrLoadDll(NULL, NULL, &unicodeString, (PVOID*)&ImageBase);
-    if NT_ERROR (status) {
-        PRINT_ERROR_NTSTATUS(status);
-        return 0;
-    }
-
-    Address = (ULONGLONG)RtlFindExportedRoutineByName((PVOID)ImageBase, (PSTR)RoutineName);
-    status  = LdrUnloadDll((PVOID)ImageBase);
-
-    if (Address != 0) {
-        Address -= ImageBase;
-        Address += GetSystemModuleBaseW(moduleName);
-        RTL_ASSERT(GetSystemModuleBaseW(moduleName) != 0);
-    }
-
-    return Address;
-}
-
-ULONGLONG GetSystemRoutineAddressW(_In_ LPCWSTR RoutineName)
-{
-    UNICODE_STRING unicodeString;
-    ANSI_STRING ansiString;
-    ULONGLONG Destination;
-
-    Destination = 0;
-
-    RtlInitUnicodeString(&unicodeString, RoutineName);
-    if NT_SUCCESS (RtlUnicodeStringToAnsiString(&ansiString, &unicodeString, TRUE)) {
-        Destination = GetSystemRoutineAddressA(ansiString.Buffer);
-        RtlFreeAnsiString(&ansiString);
-    }
-    return Destination;
-}
-
-ULONGLONG GetObjectByHandle(_In_ HANDLE ObjectHandle)
-{
-    ULONGLONG ObjectAddr = 0;
     PSYSTEM_HANDLE_INFORMATION_EX SystemHandleInfo;
     ULONG i;
     ULONG BufferLength = 0;
     PVOID Buffer       = NULL;
     NTSTATUS Status;
 
+    *Pointer     = 0;
     BufferLength = sizeof(PVOID);
     Buffer       = RtlAllocateMemory(BufferLength);
     Status       = STATUS_INFO_LENGTH_MISMATCH;
 
     while (Status != STATUS_SUCCESS) {
-        Status = NtQuerySystemInformation(SystemExtendedHandleInformation, Buffer, BufferLength, &BufferLength);
+        Status = NtQuerySystemInformation(
+            SystemExtendedHandleInformation,
+            Buffer,
+            BufferLength,
+            &BufferLength);
 
         if (Status == STATUS_INFO_LENGTH_MISMATCH) {
             RtlFreeMemory(Buffer);
@@ -139,62 +26,142 @@ ULONGLONG GetObjectByHandle(_In_ HANDLE ObjectHandle)
         }
     }
 
+    Status           = STATUS_NOT_FOUND;
     SystemHandleInfo = Buffer;
     for (i = 0; i < SystemHandleInfo->NumberOfHandles; ++i) {
-        if (SystemHandleInfo->Handles[i].UniqueProcessId == (ULONGLONG)NtCurrentTeb()->ClientId.UniqueProcess
-            && SystemHandleInfo->Handles[i].HandleValue == (ULONGLONG)ObjectHandle) {
-            ObjectAddr = (ULONGLONG)SystemHandleInfo->Handles[i].Object;
+        if (SystemHandleInfo->Handles[i].UniqueProcessId
+                == (ULONGLONG)NtCurrentTeb()->ClientId.UniqueProcess
+            && SystemHandleInfo->Handles[i].HandleValue == (ULONGLONG)Handle) {
+            *Pointer = (ULONGLONG)SystemHandleInfo->Handles[i].Object;
+            Status   = STATUS_SUCCESS;
             break;
         }
     }
 
     RtlFreeMemory(Buffer);
-    return ObjectAddr;
+    return Status;
 }
 
-BOOLEAN GetSystemModuleInformationA(_In_ LPCSTR ModuleName, _Out_ PRTL_PROCESS_MODULE_INFORMATION Result)
+NTSTATUS MmGetSystemModuleA(
+    _In_ LPCSTR ModuleName,
+    _Out_ PRTL_PROCESS_MODULE_INFORMATION ModuleInformation)
 {
-    ULONG BufferLength;
-    PVOID Buffer;
     NTSTATUS Status;
-    BOOLEAN Success;
+    ULONG BufferLength;
     PRTL_PROCESS_MODULES ModuleList;
     PCHAR BaseModuleName;
     ANSI_STRING ModuleNameA;
     ANSI_STRING BaseModuleNameA;
 
-    RtlZeroMemory(Result, sizeof(RTL_PROCESS_MODULE_INFORMATION));
+    RtlSecureZeroMemory(ModuleInformation, sizeof(RTL_PROCESS_MODULE_INFORMATION));
     BufferLength = sizeof(PVOID);
-    Buffer       = RtlAllocateMemory(BufferLength);
+    ModuleList   = RtlAllocateMemory(BufferLength);
     Status       = STATUS_INFO_LENGTH_MISMATCH;
-    Success      = FALSE;
 
     while (Status != STATUS_SUCCESS) {
-        Status = NtQuerySystemInformation(SystemModuleInformation, Buffer, BufferLength, &BufferLength);
+        Status = NtQuerySystemInformation(
+            SystemModuleInformation,
+            ModuleList,
+            BufferLength,
+            &BufferLength);
 
         if (Status == STATUS_INFO_LENGTH_MISMATCH) {
-            RtlFreeMemory(Buffer);
-            Buffer = RtlAllocateMemory(BufferLength);
+            RtlFreeMemory(ModuleList);
+            ModuleList = RtlAllocateMemory(BufferLength);
         }
     }
 
+    Status = STATUS_DLL_NOT_FOUND;
     RtlInitString(&ModuleNameA, ModuleName);
-    ModuleList = (PRTL_PROCESS_MODULES)Buffer;
     for (ULONG i = 0; i < ModuleList->NumberOfModules; i++) {
-        BaseModuleName = RtlOffsetToPointer(ModuleList->Modules[i].FullPathName, ModuleList->Modules[i].OffsetToFileName);
-        RtlInitString(&BaseModuleNameA, BaseModuleName);
+        BaseModuleName = RtlOffsetToPointer(
+            ModuleList->Modules[i].FullPathName,
+            ModuleList->Modules[i].OffsetToFileName);
 
+        RtlInitString(&BaseModuleNameA, BaseModuleName);
         if (RtlEqualString(&BaseModuleNameA, &ModuleNameA, TRUE) == TRUE) {
-            *Result = ModuleList->Modules[i];
-            Success = TRUE;
+            *ModuleInformation = ModuleList->Modules[i];
+            Status             = STATUS_SUCCESS;
             break;
         }
     }
 
-    if (Buffer) {
-        RtlFreeMemory(Buffer);
-        Buffer = NULL;
+    if (ModuleList) {
+        RtlFreeMemory(ModuleList);
+        ModuleList = NULL;
     }
 
-    return Success;
+    return Status;
+}
+
+NTSTATUS MmGetSystemModuleW(
+    _In_ LPCWSTR ModuleName,
+    _Out_ PRTL_PROCESS_MODULE_INFORMATION ModuleInformation)
+{
+    ANSI_STRING AnsiString;
+    UNICODE_STRING UnicodeString;
+    NTSTATUS Status;
+
+    RtlInitUnicodeString(&UnicodeString, ModuleName);
+    Status = RtlUnicodeStringToAnsiString(&AnsiString, &UnicodeString, TRUE);
+
+    if NT_SUCCESS (Status) {
+        Status = MmGetSystemModuleA(AnsiString.Buffer, ModuleInformation);
+        RtlFreeAnsiString(&AnsiString);
+    }
+
+    return Status;
+}
+
+NTSTATUS MmGetSystemRoutineAddressA(_In_ LPCSTR RoutineName, _Out_ PULONGLONG Pointer)
+{
+    NTSTATUS Status;
+    UNICODE_STRING UnicodeString;
+    ULONGLONG ImageBase;
+    ULONGLONG Address;
+    RTL_PROCESS_MODULE_INFORMATION ModuleInformation;
+
+    *Pointer = 0;
+    Status   = MmGetSystemModuleW(L"ntoskrnl.exe", &ModuleInformation);
+    if NT_ERROR (Status) {
+        DEBUG_PRINT_NTERROR(Status);
+        return Status;
+    }
+
+    RtlInitUnicodeString(&UnicodeString, L"ntoskrnl.exe");
+    Status = LdrLoadDll(NULL, NULL, &UnicodeString, (PVOID*)&ImageBase);
+    if NT_ERROR (Status) {
+        DEBUG_PRINT_NTERROR(Status);
+        return Status;
+    }
+
+    Status  = STATUS_PROCEDURE_NOT_FOUND;
+    Address = (ULONGLONG)RtlFindExportedRoutineByName((PVOID)ImageBase, (PSTR)RoutineName);
+    LdrUnloadDll((PVOID)ImageBase);
+
+    if (Address != 0) {
+        Address  -= ImageBase;
+        Address  += (ULONGLONG)ModuleInformation.ImageBase;
+        *Pointer  = Address;
+        Status    = STATUS_SUCCESS;
+    }
+
+    return Status;
+}
+
+NTSTATUS MmGetSystemRoutineAddressW(_In_ LPCWSTR ModuleName, _Out_ PULONGLONG Pointer)
+{
+    ANSI_STRING AnsiString;
+    UNICODE_STRING UnicodeString;
+    NTSTATUS Status;
+
+    RtlInitUnicodeString(&UnicodeString, ModuleName);
+    Status = RtlUnicodeStringToAnsiString(&AnsiString, &UnicodeString, TRUE);
+
+    if NT_SUCCESS (Status) {
+        Status = MmGetSystemRoutineAddressA(AnsiString.Buffer, Pointer);
+        RtlFreeAnsiString(&AnsiString);
+    }
+
+    return Status;
 }

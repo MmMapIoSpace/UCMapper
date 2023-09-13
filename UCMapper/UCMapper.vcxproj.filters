@@ -45,6 +45,12 @@
     <ClCompile Include="filerw.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="kernel.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Pattern.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -78,6 +84,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="driverlist.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="kernel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

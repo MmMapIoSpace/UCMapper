@@ -1,29 +1,12 @@
 #include "main.h"
 
-#ifdef _WIN64
-#define DEFAULT_SECURITY_COOKIE 0x00002B992DDFA232
-#else
-#define DEFAULT_SECURITY_COOKIE 0xBB40E64E
-#endif
-
-#define LDRP_RELOCATION_INCREMENT      0x1
-#define LDRP_RELOCATION_FINAL          0x2
-
-#define IMAGE_REL_BASED_ABSOLUTE       0
-#define IMAGE_REL_BASED_HIGH           1
-#define IMAGE_REL_BASED_LOW            2
-#define IMAGE_REL_BASED_HIGHLOW        3
-#define IMAGE_REL_BASED_HIGHADJ        4
-#define IMAGE_REL_BASED_MIPS_JMPADDR   5
-#define IMAGE_REL_BASED_SECTION        6
-#define IMAGE_REL_BASED_REL32          7
-#define IMAGE_REL_BASED_MIPS_JMPADDR16 9
-#define IMAGE_REL_BASED_IA64_IMM64     9
-#define IMAGE_REL_BASED_DIR64          10
+#pragma warning( \
+        disable : 4152) // non standard extension, function/data ptr conversion in expression
 
 #pragma region code_running_on_system_address_space
 
-FORCEINLINE VOID InitSecurityCookie(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ PVOID ImageBase)
+FORCEINLINE VOID
+InitSecurityCookie(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ PVOID ImageBase)
 {
     PIMAGE_LOAD_CONFIG_DIRECTORY ConfigDirectory;
     PVOID Buffer;
@@ -31,7 +14,11 @@ FORCEINLINE VOID InitSecurityCookie(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, 
     PULONGLONG SecurityCookie;
     ULONGLONG NewCookie;
 
-    Buffer          = StartContext->ImportTable.RtlImageDirectoryEntryToData(ImageBase, TRUE, IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG, &LoadConfigSize);
+    Buffer = StartContext->ImportTable.RtlImageDirectoryEntryToData(
+        ImageBase,
+        TRUE,
+        IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG,
+        &LoadConfigSize);
     ConfigDirectory = (PIMAGE_LOAD_CONFIG_DIRECTORY)Buffer;
 
     if (ConfigDirectory && ConfigDirectory->SecurityCookie) {
@@ -51,7 +38,11 @@ FORCEINLINE VOID InitSecurityCookie(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, 
     }
 }
 
-FORCEINLINE PIMAGE_BASE_RELOCATION LdrProcessRelocationBlockLongLong(_In_ ULONG_PTR VA, _In_ ULONG SizeOfBlock, _In_ PUSHORT NextOffset, _In_ LONGLONG Diff)
+FORCEINLINE PIMAGE_BASE_RELOCATION LdrProcessRelocationBlockLongLong(
+    _In_ ULONG_PTR VA,
+    _In_ ULONG SizeOfBlock,
+    _In_ PUSHORT NextOffset,
+    _In_ LONGLONG Diff)
 {
     PUCHAR FixupVA;
     USHORT Offset;
@@ -181,7 +172,8 @@ FORCEINLINE PIMAGE_BASE_RELOCATION LdrProcessRelocationBlockLongLong(_In_ ULONG_
     return (PIMAGE_BASE_RELOCATION)NextOffset;
 }
 
-FORCEINLINE PVOID LdrGetSystemModuleBaseA(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ LPCSTR ModuleName)
+FORCEINLINE PVOID
+LdrGetSystemModuleBaseA(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ LPCSTR ModuleName)
 {
     ANSI_STRING AnsiString;
     UNICODE_STRING UnicodeString;
@@ -198,7 +190,8 @@ FORCEINLINE PVOID LdrGetSystemModuleBaseA(_In_ PMAPPER_EXECUTOR_CONTEXT StartCon
     Status = ImportTable->RtlAnsiStringToUnicodeString(&UnicodeString, &AnsiString, TRUE);
 
     if NT_SUCCESS (Status) {
-        for (Link = ImportTable->PsLoadedModuleList; Link != ImportTable->PsLoadedModuleList->Blink; Link = Link->Flink) {
+        for (Link = ImportTable->PsLoadedModuleList; Link != ImportTable->PsLoadedModuleList->Blink;
+             Link = Link->Flink) {
             Entry = CONTAINING_RECORD(Link, KLDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
 
             if (ImportTable->RtlEqualUnicodeString(&Entry->BaseDllName, &UnicodeString, TRUE)
@@ -214,7 +207,8 @@ FORCEINLINE PVOID LdrGetSystemModuleBaseA(_In_ PMAPPER_EXECUTOR_CONTEXT StartCon
     return Destination;
 }
 
-FORCEINLINE PVOID LdrGetSystemRoutineAddressA(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ LPCSTR ModuleName)
+FORCEINLINE PVOID
+LdrGetSystemRoutineAddressA(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ LPCSTR ModuleName)
 {
     PVOID Destination;
     UNICODE_STRING unicodeString;
@@ -235,7 +229,8 @@ FORCEINLINE PVOID LdrGetSystemRoutineAddressA(_In_ PMAPPER_EXECUTOR_CONTEXT Star
     return Destination;
 }
 
-FORCEINLINE NTSTATUS ResolveImageReferences(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ PCHAR ImageBase)
+FORCEINLINE NTSTATUS
+ResolveImageReferences(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _In_ PCHAR ImageBase)
 {
     ULONG ImportDescriptorSize;
     PIMAGE_IMPORT_DESCRIPTOR ImportDescriptor;
@@ -250,13 +245,15 @@ FORCEINLINE NTSTATUS ResolveImageReferences(_In_ PMAPPER_EXECUTOR_CONTEXT StartC
     PKERNEL_IMPORT_TABLE ImportTable;
 
     ImportTable = &StartContext->ImportTable;
-
-    // Always Test for buffer.
     if (ImportTable->RtlImageNtHeader(ImageBase) == NULL) {
         return STATUS_INVALID_IMAGE_FORMAT;
     }
 
-    ImportDescriptor = ImportTable->RtlImageDirectoryEntryToData(ImageBase, TRUE, IMAGE_DIRECTORY_ENTRY_IMPORT, &ImportDescriptorSize);
+    ImportDescriptor = ImportTable->RtlImageDirectoryEntryToData(
+        ImageBase,
+        TRUE,
+        IMAGE_DIRECTORY_ENTRY_IMPORT,
+        &ImportDescriptorSize);
 
     // ============================
     // No Import to be resolved.
@@ -270,7 +267,8 @@ FORCEINLINE NTSTATUS ResolveImageReferences(_In_ PMAPPER_EXECUTOR_CONTEXT StartC
     //
 
     Count = 0;
-    for (PIMAGE_IMPORT_DESCRIPTOR Imp = ImportDescriptor; Imp->Name && Imp->OriginalFirstThunk; Imp += 1) {
+    for (PIMAGE_IMPORT_DESCRIPTOR Imp  = ImportDescriptor; Imp->Name && Imp->OriginalFirstThunk;
+         Imp                          += 1) {
         Count += 1;
     }
 
@@ -294,7 +292,8 @@ FORCEINLINE NTSTATUS ResolveImageReferences(_In_ PMAPPER_EXECUTOR_CONTEXT StartC
                 if (IMAGE_SNAP_BY_ORDINAL(NameThunk->u1.Ordinal)) {
                     ProcedureName = (PCHAR)IMAGE_ORDINAL(NameThunk->u1.Ordinal);
                 } else {
-                    ImportNameTable = (PIMAGE_IMPORT_BY_NAME)(ImageBase + NameThunk->u1.AddressOfData);
+                    ImportNameTable
+                        = (PIMAGE_IMPORT_BY_NAME)(ImageBase + NameThunk->u1.AddressOfData);
 
                     if (!ImportNameTable)
                         return STATUS_PROCEDURE_NOT_FOUND;
@@ -308,7 +307,8 @@ FORCEINLINE NTSTATUS ResolveImageReferences(_In_ PMAPPER_EXECUTOR_CONTEXT StartC
                 //
                 ProcedureAddress = LdrGetSystemRoutineAddressA(StartContext, ProcedureName);
                 if (ProcedureAddress == NULL)
-                    ProcedureAddress = ImportTable->RtlFindExportedRoutineByName(ModuleBase, ProcedureName);
+                    ProcedureAddress
+                        = ImportTable->RtlFindExportedRoutineByName(ModuleBase, ProcedureName);
 
                 if (ProcedureAddress == NULL) {
                     return STATUS_PROCEDURE_NOT_FOUND;
@@ -365,7 +365,11 @@ FORCEINLINE NTSTATUS RelocateImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _
     // Locate the relocation section.
     //
 
-    NextBlock = StartContext->ImportTable.RtlImageDirectoryEntryToData(ImageBase, TRUE, IMAGE_DIRECTORY_ENTRY_BASERELOC, &TotalCountBytes);
+    NextBlock = StartContext->ImportTable.RtlImageDirectoryEntryToData(
+        ImageBase,
+        TRUE,
+        IMAGE_DIRECTORY_ENTRY_BASERELOC,
+        &TotalCountBytes);
 
     //
     // It is possible for a file to have no relocations, but the relocations
@@ -373,7 +377,9 @@ FORCEINLINE NTSTATUS RelocateImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext, _
     //
 
     if (!NextBlock || !TotalCountBytes) {
-        Status = (NtHeaders->FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED) ? STATUS_CONFLICTING_ADDRESSES : STATUS_SUCCESS;
+        Status = (NtHeaders->FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED) ?
+                     STATUS_CONFLICTING_ADDRESSES :
+                     STATUS_SUCCESS;
         goto Exit;
     }
 
@@ -500,14 +506,18 @@ VOID MiLoadSystemImageWorker(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     // Create Driver Object as params.
     //
 
-    DriverObject = ImportTable->ExAllocatePool2(0x0000000000000040UI64, sizeof(DRIVER_OBJECT), (ULONG)((ULONGLONG)ImageBase));
+    DriverObject = ImportTable->ExAllocatePool2(
+        0x0000000000000040UI64,
+        sizeof(DRIVER_OBJECT),
+        (ULONG)((ULONGLONG)ImageBase));
 
     DriverObject->DriverStart   = ImageBase;
     DriverObject->DriverSize    = NtHeader->OptionalHeader.SizeOfImage;
     DriverObject->DriverSection = StartContext;
     DriverObject->DriverUnload  = StartContext->Unloader;
-    DriverObject->DriverInit    = RtlOffsetToPointer(ImageBase, NtHeader->OptionalHeader.AddressOfEntryPoint);
-    DriverEntry                 = DriverObject->DriverInit;
+    DriverObject->DriverInit
+        = RtlOffsetToPointer(ImageBase, NtHeader->OptionalHeader.AddressOfEntryPoint);
+    DriverEntry = (PDRIVER_INITIALIZE)DriverObject->DriverInit;
 
     //
     // Invoke DriverEntry.
@@ -531,14 +541,19 @@ VOID MiLoadSystemImageWorker(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
             SectionProtection = 0;
 
             if (Characteristics & IMAGE_SCN_MEM_DISCARDABLE) {
-                for (PULONG j = (PULONG)SectionStart; j < (PULONG)(SectionStart + SectionSize); j++) {
+                for (PULONG j = (PULONG)SectionStart; j < (PULONG)(SectionStart + SectionSize);
+                     j++) {
                     *j ^= (ULONG)((ULONGLONG)SectionStart);
                 }
 
                 SectionProtection = PAGE_READONLY;
-            } else if (!(Characteristics & IMAGE_SCN_MEM_EXECUTE) && !(Characteristics & IMAGE_SCN_MEM_WRITE)) {
+            } else if (
+                !(Characteristics & IMAGE_SCN_MEM_EXECUTE)
+                && !(Characteristics & IMAGE_SCN_MEM_WRITE)) {
                 SectionProtection = PAGE_READONLY;
-            } else if ((Characteristics & IMAGE_SCN_MEM_EXECUTE) && !(Characteristics & IMAGE_SCN_MEM_WRITE)) {
+            } else if (
+                (Characteristics & IMAGE_SCN_MEM_EXECUTE)
+                && !(Characteristics & IMAGE_SCN_MEM_WRITE)) {
                 SectionProtection = PAGE_EXECUTE_READ;
             } else if ((Characteristics & IMAGE_SCN_MEM_WRITE)) {
                 SectionProtection = PAGE_READWRITE;
@@ -601,7 +616,8 @@ NTSTATUS MiLoadSystemImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     // Try to verify based on the context a bit.
     //
 
-    if (StartContext == NULL || ((PCHAR)StartContext + ContextSize) <= (PCHAR)StartContext || StartContext->ContextSize != ContextSize) {
+    if (StartContext == NULL || ((PCHAR)StartContext + ContextSize) <= (PCHAR)StartContext
+        || StartContext->ContextSize != ContextSize) {
         status = STATUS_INVALID_PARAMETER;
         return status;
     }
@@ -614,7 +630,10 @@ NTSTATUS MiLoadSystemImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     // Allocate memory for context in system address.
     //
 
-    WorkerContext = ImportTable->ExAllocatePool2(0x0000000000000040UI64, ContextSize, (ULONG)((ULONGLONG)StartContext->ImageBase));
+    WorkerContext = ImportTable->ExAllocatePool2(
+        0x0000000000000040UI64,
+        ContextSize,
+        (ULONG)((ULONGLONG)StartContext->ImageBase));
     if (WorkerContext == NULL) {
         status = STATUS_INSUFFICIENT_RESOURCES;
         return status;
@@ -629,14 +648,22 @@ NTSTATUS MiLoadSystemImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     ImageBase               = StartContext->ImageBase;
     ImageSize               = StartContext->ImageSize;
 
-    MdlHack = ImportTable->MmAllocatePagesForMdlEx(LowestAddress, HighestAddress, LowestAddress, ImageSize, MmNonCached, 0x00000020);
+    MdlHack = ImportTable->MmAllocatePagesForMdlEx(
+        LowestAddress,
+        HighestAddress,
+        LowestAddress,
+        ImageSize,
+        MmNonCached,
+        0x00000020);
     if (MdlHack == NULL) {
         ImportTable->ExFreePoolWithTag(WorkerContext, 0);
         status = STATUS_MEMORY_NOT_ALLOCATED;
         return status;
     }
 
-    MapSection = ImportTable->MmMapLockedPagesSpecifyCache(MdlHack, 0, MmCached, NULL, FALSE, HighPagePriority);
+    MapSection
+        = ImportTable
+              ->MmMapLockedPagesSpecifyCache(MdlHack, 0, MmCached, NULL, FALSE, HighPagePriority);
     if (MapSection == NULL) {
         ImportTable->MmFreePagesFromMdl(MdlHack);
         ImportTable->ExFreePoolWithTag(MdlHack, 0);
@@ -655,9 +682,22 @@ NTSTATUS MiLoadSystemImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
     // Create Worker Thread that run on system process context.
     //
 
-    status = ImportTable->PsCreateSystemThread(&threadHandle, THREAD_ALL_ACCESS, NULL, NULL, NULL, WorkerThread, WorkerContext);
+    status = ImportTable->PsCreateSystemThread(
+        &threadHandle,
+        THREAD_ALL_ACCESS,
+        NULL,
+        NULL,
+        NULL,
+        WorkerThread,
+        WorkerContext);
     if NT_SUCCESS (status) {
-        status = ImportTable->ObReferenceObjectByHandle(threadHandle, THREAD_ALL_ACCESS, NULL, 0, &threadObject, NULL);
+        status = ImportTable->ObReferenceObjectByHandle(
+            threadHandle,
+            THREAD_ALL_ACCESS,
+            NULL,
+            0,
+            &threadObject,
+            NULL);
         if NT_SUCCESS (status) {
             status = ImportTable->KeWaitForSingleObject(threadObject, Executive, 0, FALSE, NULL);
             if NT_SUCCESS (status)
@@ -697,9 +737,9 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
     procSize2 = GetProcedureSize(MiLoadSystemImageWorker);
     procSize3 = GetProcedureSize(MiUnloadSystemImage);
 
-    Executor = ExAllocatePool2(Driver, procSize);
-    Worker   = ExAllocatePool2(Driver, procSize2);
-    Unloader = ExAllocatePool2(Driver, procSize3);
+    KiExAllocatePool2(Driver, procSize, &Executor);
+    KiExAllocatePool2(Driver, procSize2, &Worker);
+    KiExAllocatePool2(Driver, procSize3, &Unloader);
 
     MiLoadSystemImageRoutine = (PROTOTYPE_ROUTINE)NtSetEaFile;
 
@@ -710,28 +750,30 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
 
         status = Driver->WriteMemory(Driver->DeviceHandle, Executor, MiLoadSystemImage, procSize);
         if NT_ERROR (status) {
-            PRINT_ERROR_NTSTATUS(status);
-            ExFreePool(Driver, Executor);
-            ExFreePool(Driver, Unloader);
-            ExFreePool(Driver, Worker);
+            DEBUG_PRINT_NTERROR(status);
+            KiExFreePool(Driver, Executor);
+            KiExFreePool(Driver, Unloader);
+            KiExFreePool(Driver, Worker);
             return status;
         }
 
-        status = Driver->WriteMemory(Driver->DeviceHandle, Worker, MiLoadSystemImageWorker, procSize2);
+        status
+            = Driver->WriteMemory(Driver->DeviceHandle, Worker, MiLoadSystemImageWorker, procSize2);
         if NT_ERROR (status) {
-            PRINT_ERROR_NTSTATUS(status);
-            ExFreePool(Driver, Executor);
-            ExFreePool(Driver, Unloader);
-            ExFreePool(Driver, Worker);
+            DEBUG_PRINT_NTERROR(status);
+            KiExFreePool(Driver, Executor);
+            KiExFreePool(Driver, Unloader);
+            KiExFreePool(Driver, Worker);
             return status;
         }
 
-        status = Driver->WriteMemory(Driver->DeviceHandle, Unloader, MiUnloadSystemImage, procSize3);
+        status
+            = Driver->WriteMemory(Driver->DeviceHandle, Unloader, MiUnloadSystemImage, procSize3);
         if NT_ERROR (status) {
-            PRINT_ERROR_NTSTATUS(status);
-            ExFreePool(Driver, Executor);
-            ExFreePool(Driver, Unloader);
-            ExFreePool(Driver, Worker);
+            DEBUG_PRINT_NTERROR(status);
+            KiExFreePool(Driver, Executor);
+            KiExFreePool(Driver, Unloader);
+            KiExFreePool(Driver, Worker);
             return status;
         }
 
@@ -752,34 +794,55 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
         // Resolve Import Table.
         //
 
-        Context.ImportTable.PsLoadedModuleList           = (PVOID)GetSystemRoutineAddressA("PsLoadedModuleList");
-        Context.ImportTable.memcpy                       = (PVOID)GetSystemRoutineAddressA("memcpy");
-        Context.ImportTable.memset                       = (PVOID)GetSystemRoutineAddressA("memset");
-        Context.ImportTable.MmGetSystemRoutineAddress    = (PVOID)GetSystemRoutineAddressA("MmGetSystemRoutineAddress");
-        Context.ImportTable.MmAllocatePagesForMdlEx      = (PVOID)GetSystemRoutineAddressA("MmAllocatePagesForMdlEx");
-        Context.ImportTable.MmFreePagesFromMdl           = (PVOID)GetSystemRoutineAddressA("MmFreePagesFromMdl");
-        Context.ImportTable.MmMapLockedPagesSpecifyCache = (PVOID)GetSystemRoutineAddressA("MmMapLockedPagesSpecifyCache");
-        Context.ImportTable.MmProtectMdlSystemAddress    = (PVOID)GetSystemRoutineAddressA("MmProtectMdlSystemAddress");
-        Context.ImportTable.KeWaitForSingleObject        = (PVOID)GetSystemRoutineAddressA("KeWaitForSingleObject");
-        Context.ImportTable.KeDelayExecutionThread       = (PVOID)GetSystemRoutineAddressA("KeDelayExecutionThread");
-        Context.ImportTable.ExAllocatePool2              = (PVOID)GetSystemRoutineAddressA("ExAllocatePool2");
-        Context.ImportTable.ExFreePoolWithTag            = (PVOID)GetSystemRoutineAddressA("ExFreePoolWithTag");
-        Context.ImportTable.RtlImageNtHeader             = (PVOID)GetSystemRoutineAddressA("RtlImageNtHeader");
-        Context.ImportTable.RtlInitUnicodeString         = (PVOID)GetSystemRoutineAddressA("RtlInitUnicodeString");
-        Context.ImportTable.RtlInitAnsiString            = (PVOID)GetSystemRoutineAddressA("RtlInitAnsiString");
-        Context.ImportTable.RtlAnsiStringToUnicodeString = (PVOID)GetSystemRoutineAddressA("RtlAnsiStringToUnicodeString");
-        Context.ImportTable.RtlEqualUnicodeString        = (PVOID)GetSystemRoutineAddressA("RtlEqualUnicodeString");
-        Context.ImportTable.RtlFreeUnicodeString         = (PVOID)GetSystemRoutineAddressA("RtlFreeUnicodeString");
-        Context.ImportTable.RtlImageDirectoryEntryToData = (PVOID)GetSystemRoutineAddressA("RtlImageDirectoryEntryToData");
-        Context.ImportTable.RtlFindExportedRoutineByName = (PVOID)GetSystemRoutineAddressA("RtlFindExportedRoutineByName");
-        Context.ImportTable.ObReferenceObjectByHandle    = (PVOID)GetSystemRoutineAddressA("ObReferenceObjectByHandle");
-        Context.ImportTable.ObfDereferenceObject         = (PVOID)GetSystemRoutineAddressA("ObfDereferenceObject");
-        Context.ImportTable.PsCreateSystemThread         = (PVOID)GetSystemRoutineAddressA("PsCreateSystemThread");
-        Context.ImportTable.PsTerminateSystemThread      = (PVOID)GetSystemRoutineAddressA("PsTerminateSystemThread");
-        Context.ImportTable.PsGetThreadExitStatus        = (PVOID)GetSystemRoutineAddressA("PsGetThreadExitStatus");
-        Context.ImportTable.ZwClose                      = (PVOID)GetSystemRoutineAddressA("ZwClose");
-        Context.ImportTable.IoAllocateMdl                = (PVOID)GetSystemRoutineAddressA("IoAllocateMdl");
-        Context.ImportTable.IoFreeMdl                    = (PVOID)GetSystemRoutineAddressA("IoFreeMdl");
+        Context.ImportTable.PsLoadedModuleList
+            = (PVOID)GetSystemRoutineAddressA("PsLoadedModuleList");
+        Context.ImportTable.memcpy = (PVOID)GetSystemRoutineAddressA("memcpy");
+        Context.ImportTable.memset = (PVOID)GetSystemRoutineAddressA("memset");
+        Context.ImportTable.MmGetSystemRoutineAddress
+            = (PVOID)GetSystemRoutineAddressA("MmGetSystemRoutineAddress");
+        Context.ImportTable.MmAllocatePagesForMdlEx
+            = (PVOID)GetSystemRoutineAddressA("MmAllocatePagesForMdlEx");
+        Context.ImportTable.MmFreePagesFromMdl
+            = (PVOID)GetSystemRoutineAddressA("MmFreePagesFromMdl");
+        Context.ImportTable.MmMapLockedPagesSpecifyCache
+            = (PVOID)GetSystemRoutineAddressA("MmMapLockedPagesSpecifyCache");
+        Context.ImportTable.MmProtectMdlSystemAddress
+            = (PVOID)GetSystemRoutineAddressA("MmProtectMdlSystemAddress");
+        Context.ImportTable.KeWaitForSingleObject
+            = (PVOID)GetSystemRoutineAddressA("KeWaitForSingleObject");
+        Context.ImportTable.KeDelayExecutionThread
+            = (PVOID)GetSystemRoutineAddressA("KeDelayExecutionThread");
+        Context.ImportTable.ExAllocatePool2 = (PVOID)GetSystemRoutineAddressA("ExAllocatePool2");
+        Context.ImportTable.ExFreePoolWithTag
+            = (PVOID)GetSystemRoutineAddressA("ExFreePoolWithTag");
+        Context.ImportTable.RtlImageNtHeader = (PVOID)GetSystemRoutineAddressA("RtlImageNtHeader");
+        Context.ImportTable.RtlInitUnicodeString
+            = (PVOID)GetSystemRoutineAddressA("RtlInitUnicodeString");
+        Context.ImportTable.RtlInitAnsiString
+            = (PVOID)GetSystemRoutineAddressA("RtlInitAnsiString");
+        Context.ImportTable.RtlAnsiStringToUnicodeString
+            = (PVOID)GetSystemRoutineAddressA("RtlAnsiStringToUnicodeString");
+        Context.ImportTable.RtlEqualUnicodeString
+            = (PVOID)GetSystemRoutineAddressA("RtlEqualUnicodeString");
+        Context.ImportTable.RtlFreeUnicodeString
+            = (PVOID)GetSystemRoutineAddressA("RtlFreeUnicodeString");
+        Context.ImportTable.RtlImageDirectoryEntryToData
+            = (PVOID)GetSystemRoutineAddressA("RtlImageDirectoryEntryToData");
+        Context.ImportTable.RtlFindExportedRoutineByName
+            = (PVOID)GetSystemRoutineAddressA("RtlFindExportedRoutineByName");
+        Context.ImportTable.ObReferenceObjectByHandle
+            = (PVOID)GetSystemRoutineAddressA("ObReferenceObjectByHandle");
+        Context.ImportTable.ObfDereferenceObject
+            = (PVOID)GetSystemRoutineAddressA("ObfDereferenceObject");
+        Context.ImportTable.PsCreateSystemThread
+            = (PVOID)GetSystemRoutineAddressA("PsCreateSystemThread");
+        Context.ImportTable.PsTerminateSystemThread
+            = (PVOID)GetSystemRoutineAddressA("PsTerminateSystemThread");
+        Context.ImportTable.PsGetThreadExitStatus
+            = (PVOID)GetSystemRoutineAddressA("PsGetThreadExitStatus");
+        Context.ImportTable.ZwClose       = (PVOID)GetSystemRoutineAddressA("ZwClose");
+        Context.ImportTable.IoAllocateMdl = (PVOID)GetSystemRoutineAddressA("IoAllocateMdl");
+        Context.ImportTable.IoFreeMdl     = (PVOID)GetSystemRoutineAddressA("IoFreeMdl");
 
         CurrentImport = (PULONGLONG)&Context.ImportTable;
         for (i = 0; i < sizeof(Context.ImportTable) / sizeof(PVOID); i += 1) {
@@ -787,10 +850,10 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
                 wprintf(L"[!] CurrentImport[%llu] not found: 0x%llX.", i, CurrentImport[i]);
 
                 status = STATUS_PROCEDURE_NOT_FOUND;
-                PRINT_ERROR_NTSTATUS(status);
-                ExFreePool(Driver, Executor);
-                ExFreePool(Driver, Unloader);
-                ExFreePool(Driver, Worker);
+                DEBUG_PRINT_NTERROR(status);
+                KiExFreePool(Driver, Executor);
+                KiExFreePool(Driver, Unloader);
+                KiExFreePool(Driver, Worker);
                 return status;
             }
         }
@@ -810,14 +873,14 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
     // Release allocation
     //
     if (Executor)
-        ExFreePool(Driver, Executor);
+        KiExFreePool(Driver, Executor);
 
     if (Worker)
-        ExFreePool(Driver, Worker);
+        KiExFreePool(Driver, Worker);
 
     if NT_ERROR (status)
         if (Unloader)
-            ExFreePool(Driver, Unloader);
+            KiExFreePool(Driver, Unloader);
 
     return status;
 }

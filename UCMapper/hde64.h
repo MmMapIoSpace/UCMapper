@@ -104,8 +104,7 @@ typedef struct
 #pragma pack(pop)
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 unsigned int hde64_disasm(const void* code, hde64s* hs);

@@ -1,84 +1,46 @@
 #include "main.h"
 
-void _cdecl wmain(_In_ int argc, _In_ wchar_t* argv[])
+#pragma data_seg(push)
+#pragma data_seg(".global")
+PDEVICE_DRIVER_OBJECT Driver = NULL;
+#pragma data_seg(pop)
+
+NTSTATUS wmain(_In_ LONG ArgumentCount, _In_ LPWSTR* Argument)
 {
-    NTSTATUS status;
-    HANDLE fileHandle;
-    UNICODE_STRING unicodeString;
-    OBJECT_ATTRIBUTES objectAttributes;
-    IO_STATUS_BLOCK ioStatus;
-    HANDLE sectionHandle;
+    NTSTATUS Status;
     PVOID ImageBase;
     SIZE_T ImageSize;
-    DEVICE_DRIVER_OBJECT Driver;
-    LPWSTR DeviceName;
-    LPWSTR ServiceName;
-    WCHAR DriverPath[MAX_PATH];
+    LPWSTR DriverPath;
 
-    if (argc != 2) {
-        wprintf(L"[!] invalid arguments.\r\n\t%ws <Driver Path>\r\n", argv[0]);
-        return;
+    if (ArgumentCount != 2) {
+        Status = STATUS_INVALID_PARAMETER;
+        DEBUG_PRINT_NTERROR(STATUS_INVALID_PARAMETER);
+        DEBUG_PRINT("[!] invalid arguments.\r\n\t%ws <Driver Path>\r\n", Argument[0]);
+        return Status;
     }
 
-    if (RtlDosPathNameToNtPathName_U(argv[1], &unicodeString, NULL, NULL) == FALSE) {
-        wprintf(L"[!] invalid object path, make sure it correct and exists: %ws.\r\n", argv[1]);
-        return;
+    DriverPath = Argument[1];
+    Status     = RtlFileMapImage(DriverPath, &ImageBase, &ImageSize);
+    if NT_ERROR (Status) {
+        DEBUG_PRINT_NTERROR(Status);
+        return Status;
     }
 
-    InitializeObjectAttributes(&objectAttributes, &unicodeString, (OBJ_CASE_INSENSITIVE), NULL, NULL);
-    status = NtOpenFile(&fileHandle, FILE_EXECUTE, &objectAttributes, &ioStatus, FILE_SHARE_READ, 0);
+    Driver               = RtlAllocateMemory(sizeof(DEVICE_DRIVER_OBJECT));
+    Driver->ReadMemory   = ReadSystemMemory;
+    Driver->WriteMemory  = WriteSystemMemory;
+    Driver->DeviceHandle = NULL;
 
-    if NT_ERROR (status) {
-        PRINT_ERROR_NTSTATUS(status);
-        return;
+
+    Status = LoadDriver(&Driver->DeviceHandle);
+    if NT_SUCCESS (Status) {
+        Status = MmLoadSystemImage(Driver, ImageBase);
+        DEBUG_PRINT("[+] Mapping result: 0x%08X.", Status);
+        UnloadDriver(Driver->DeviceHandle);
     }
 
-    InitializeObjectAttributes(&objectAttributes, NULL, (OBJ_CASE_INSENSITIVE), NULL, NULL);
-    status = NtCreateSection(&sectionHandle, SECTION_ALL_ACCESS, &objectAttributes, (PLARGE_INTEGER)NULL, PAGE_EXECUTE, SEC_IMAGE, fileHandle);
-
-    if NT_ERROR (status) {
-        NtClose(fileHandle);
-        PRINT_ERROR_NTSTATUS(status);
-        return;
-    }
-
-    ImageBase = NULL;
-    ImageSize = 0;
-    status    = NtMapViewOfSection(sectionHandle, NtCurrentProcess(), &ImageBase, 0, 0, NULL, &ImageSize, ViewUnmap, 0, PAGE_EXECUTE);
-
-    NtClose(sectionHandle);
-    NtClose(fileHandle);
-    if NT_ERROR (status) {
-        PRINT_ERROR_NTSTATUS(status);
-        return;
-    }
-
-    ServiceName = L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\NVR0Internal";
-    DeviceName  = L"\\Device\\NVR0Internal";
-    StringCchCopyW(DriverPath, MAX_PATH, NtCurrentPeb()->ProcessParameters->CurrentDirectory.DosPath.Buffer);
-    StringCchCatW(DriverPath, MAX_PATH, L"nvaudio.sys");
-
-    status = WriteFileFromMemory(DriverPath, NvaudioDriver, sizeof(NvaudioDriver));
-    if NT_ERROR (status) {
-        PRINT_ERROR_NTSTATUS(status);
-
-        NtUnmapViewOfSection(NtCurrentProcess(), ImageBase);
-        return;
-    }
-
-    status = LoadDriver(&Driver.DeviceHandle, DriverPath, ServiceName, DeviceName);
-
-    if NT_SUCCESS (status) {
-        Driver.ReadMemory  = ReadSystemMemory;
-        Driver.WriteMemory = WriteSystemMemory;
-
-        status = MmLoadSystemImage(&Driver, ImageBase);
-        wprintf(L"[+] Mapping result: 0x%08X.", status);
-
-        UnloadDriver(Driver.DeviceHandle, ServiceName);
-    }
-
-    DeleteFileFromDisk(DriverPath);
-    NtUnmapViewOfSection(NtCurrentProcess(), ImageBase);
-    return;
+    RtlFileUnmap(ImageBase);
+    RtlFreeMemory(Driver);
+    Driver = NULL;
+    return Status;
 }

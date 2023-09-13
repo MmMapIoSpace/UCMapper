@@ -32,7 +32,7 @@
   <PropertyGroup Label="UserMacros" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
@@ -43,6 +43,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -58,9 +59,11 @@
     <ClCompile Include="filerw.c" />
     <ClCompile Include="hde64.c" />
     <ClCompile Include="hook.c" />
+    <ClCompile Include="kernel.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="mapper.c" />
     <ClCompile Include="driverbuf.c" />
+    <ClCompile Include="Pattern.c" />
     <ClCompile Include="registry.c" />
     <ClCompile Include="routine.c" />
   </ItemGroup>
@@ -71,6 +74,7 @@
     <ClInclude Include="halamd64.h" />
     <ClInclude Include="hde64.h" />
     <ClInclude Include="hook.h" />
+    <ClInclude Include="kernel.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="mapper.h" />
     <ClInclude Include="ntdll.h" />
