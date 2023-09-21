@@ -1,11 +1,6 @@
 
 #include "main.h"
 
-#define NVAUDIO_DEVICE_NAME L"\\Device\\NVR0Internal"
-#define NVAUDIO_DRIVER_PATH L"\\SystemRoot\\nvaudio.sys"
-#define NVAUDIO_SERVICE_PATH \
-    L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\NVR0Internal"
-
 typedef PVOID (*EncodePayLoad_t)(PVOID Request, LONG EncodeCode, ULONGLONG* EncryptionKey);
 static EncodePayLoad_t EncodePayLoad = 0;
 static PVOID NvAudioLibrary          = 0;
@@ -64,9 +59,23 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
     OBJECT_ATTRIBUTES ObjectAttributes;
     IO_STATUS_BLOCK IoStatusBlock;
     HANDLE DeviceHandle;
-    WCHAR DeviceName[]     = NVAUDIO_DEVICE_NAME;
-    WCHAR ServiceName[]    = NVAUDIO_SERVICE_PATH;
-    WCHAR DriverFullPath[] = NVAUDIO_DRIVER_PATH;
+
+    WCHAR DeviceName[] = {L'\\', L'D', L'e', L'v', L'i', L'c', L'e', L'\\', L'N', L'V', L'R',
+                          L'0',  L'I', L'n', L't', L'e', L'r', L'n', L'a',  L'l', L'\0'};
+
+    WCHAR ServiceName[]
+        = {L'\\', L'R', L'e', L'g',  L'i',  L's', L't', L'r', L'y', L'\\', L'M', L'a',  L'c',
+           L'h',  L'i', L'n', L'e',  L'\\', L'S', L'Y', L'S', L'T', L'E',  L'M', L'\\', L'C',
+           L'u',  L'r', L'r', L'e',  L'n',  L't', L'C', L'o', L'n', L't',  L'r', L'o',  L'l',
+           L'S',  L'e', L't', L'\\', L'S',  L'e', L'r', L'v', L'i', L'c',  L'e', L's',  L'\\',
+           L'N',  L'V', L'R', L'0',  L'I',  L'n', L't', L'e', L'r', L'n',  L'a', L'l',  L'\0'};
+
+    WCHAR DriverFullPath[]
+        = {L'\\', L'S', L'y', L's', L't', L'e', L'm', L'R', L'o', L'o', L't', L'\\',
+           L'n',  L'v', L'a', L'u', L'd', L'i', L'o', L'.', L's', L'y', L's', L'\0'};
+
+    WCHAR DriverBaseName[]
+        = {L'n', L'v', L'a', L'u', L'd', L'i', L'o', L'.', L's', L'y', L's', L'\0'};
 
     if ARGUMENT_PRESENT (DriverObject)
         RtlZeroMemory(DriverObject, sizeof(DEVICE_DRIVER_OBJECT));
@@ -137,11 +146,13 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
         //
         // Set registry and load driver.
         //
+        WCHAR v4[] = {L'I', L'm', L'a', L'g', L'e', L'P', L'a', L't', L'h', L'\0'};
+        WCHAR v5[] = {L'T', L'y', L'p', L'e', L'\0'};
 
-        Status = RtlRegSetKeyValueSz(ServiceName, L"ImagePath", DriverFullPath);
+        Status = RtlRegSetKeyValueSz(ServiceName, v4, DriverFullPath);
 
         if NT_SUCCESS (Status)
-            Status = RtlRegSetKeyValue32(ServiceName, L"Type", 1);
+            Status = RtlRegSetKeyValue32(ServiceName, v5, 1);
 
         if NT_ERROR (Status) {
             RtlRegDeleteKey(ServiceName);
@@ -198,7 +209,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
     //
 
     if (NvAudioLibrary == 0) {
-        RtlInitUnicodeString(&UnicodeString, L"nvaudio.sys");
+        RtlInitUnicodeString(&UnicodeString, DriverBaseName);
         Status = LdrLoadDll(NULL, NULL, &UnicodeString, &NvAudioLibrary);
 
         if NT_ERROR (Status) {
@@ -225,7 +236,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
 
         if (RemoveDriverRuntimeList(
                 DriverObject,
-                L"nvaudio.sys",
+                DriverBaseName,
                 RtlImageNtHeader(NvAudioLibrary)->FileHeader.TimeDateStamp)
             == FALSE) {
             LdrUnloadDll(NvAudioLibrary);
@@ -249,8 +260,17 @@ NTSTATUS UnloadDriver(_In_ PDEVICE_DRIVER_OBJECT DriverObject)
 {
     NTSTATUS Status;
     UNICODE_STRING UnicodeString;
-    WCHAR ServiceName[]    = NVAUDIO_SERVICE_PATH;
-    WCHAR DriverFullPath[] = NVAUDIO_DRIVER_PATH;
+
+    WCHAR ServiceName[]
+        = {L'\\', L'R', L'e', L'g',  L'i',  L's', L't', L'r', L'y', L'\\', L'M', L'a',  L'c',
+           L'h',  L'i', L'n', L'e',  L'\\', L'S', L'Y', L'S', L'T', L'E',  L'M', L'\\', L'C',
+           L'u',  L'r', L'r', L'e',  L'n',  L't', L'C', L'o', L'n', L't',  L'r', L'o',  L'l',
+           L'S',  L'e', L't', L'\\', L'S',  L'e', L'r', L'v', L'i', L'c',  L'e', L's',  L'\\',
+           L'N',  L'V', L'R', L'0',  L'I',  L'n', L't', L'e', L'r', L'n',  L'a', L'l',  L'\0'};
+
+    WCHAR DriverFullPath[]
+        = {L'\\', L'S', L'y', L's', L't', L'e', L'm', L'R', L'o', L'o', L't', L'\\',
+           L'n',  L'v', L'a', L'u', L'd', L'i', L'o', L'.', L's', L'y', L's', L'\0'};
 
     if (NvAudioLibrary) {
         LdrUnloadDll(NvAudioLibrary);

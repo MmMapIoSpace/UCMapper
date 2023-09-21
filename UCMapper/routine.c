@@ -120,15 +120,16 @@ NTSTATUS MmGetSystemRoutineAddressA(_In_ LPCSTR RoutineName, _Out_ PULONGLONG Po
     ULONGLONG ImageBase;
     ULONGLONG Address;
     RTL_PROCESS_MODULE_INFORMATION ModuleInformation;
+    WCHAR v1[] = {L'n', L't', L'o', L's', L'k', L'r', L'n', L'l', L'.', L'e', L'x', L'e', L'\0'};
 
     *Pointer = 0;
-    Status   = MmGetSystemModuleW(L"ntoskrnl.exe", &ModuleInformation);
+    Status   = MmGetSystemModuleW(v1, &ModuleInformation);
     if NT_ERROR (Status) {
         DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
-    RtlInitUnicodeString(&UnicodeString, L"ntoskrnl.exe");
+    RtlInitUnicodeString(&UnicodeString, v1);
     Status = LdrLoadDll(NULL, NULL, &UnicodeString, (PVOID*)&ImageBase);
     if NT_ERROR (Status) {
         DEBUG_PRINT_NTSTATUS(Status);
