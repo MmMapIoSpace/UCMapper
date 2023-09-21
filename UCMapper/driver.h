@@ -1,24 +1,5 @@
 #pragma once
 
-extern ULONGLONG DriverResource[5517];
-
-NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle);
-NTSTATUS UnloadDriver(_In_ HANDLE DeviceHandle);
-
-
-NTSTATUS ReadSystemMemory(
-    _In_ HANDLE DeviceHandle,
-    _In_ ULONGLONG Source,
-    _Out_writes_bytes_(Length) PVOID Destination,
-    _In_ SIZE_T Length);
-
-
-NTSTATUS WriteSystemMemory(
-    _In_ HANDLE DeviceHandle,
-    _In_ ULONGLONG Destination,
-    _In_reads_bytes_(Length) PVOID Source,
-    _In_ SIZE_T Length);
-
 
 typedef NTSTATUS (*PFN_READSYSTEMMEMORY)(
     _In_ HANDLE DeviceHandle,
@@ -39,6 +20,9 @@ typedef struct _DEVICE_DRIVER_OBJECT
     PFN_READSYSTEMMEMORY ReadMemory;
     PFN_WRITESYSTEMMEMORY WriteMemory;
 } DEVICE_DRIVER_OBJECT, *PDEVICE_DRIVER_OBJECT;
+
+NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject);
+NTSTATUS UnloadDriver(_In_ PDEVICE_DRIVER_OBJECT DriverObject);
 
 #define NVAUDIO_IOCTL_CODE 0x9C40A484
 

