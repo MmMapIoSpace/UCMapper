@@ -847,7 +847,7 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
         CurrentImport = (PULONGLONG)&Context.ImportTable;
         for (i = 0; i < sizeof(Context.ImportTable) / sizeof(PVOID); i += 1) {
             if (CurrentImport[i] == 0) {
-                wprintf(L"[!] CurrentImport[%llu] not found: 0x%llX.", i, CurrentImport[i]);
+                DEBUG_PRINT("[!] CurrentImport[%llu] not found: 0x%llX.", i, CurrentImport[i]);
 
                 status = STATUS_PROCEDURE_NOT_FOUND;
                 DEBUG_PRINT_NTERROR(status);
