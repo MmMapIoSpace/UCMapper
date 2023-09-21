@@ -28,28 +28,38 @@ extern "C" {
 
 #ifndef DISABLE_NTSTATUS_ERROR_OUTPUT
 #define DEBUG_PRINT(Format, ...) DebugPrint(L##Format L"\r\n", __VA_ARGS__)
-#define DEBUG_PRINT_NTERROR(Status)                                      \
-    {                                                                    \
-        LPVOID Message;                                                  \
-        FormatMessageW(                                                  \
-            (FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM \
-             | FORMAT_MESSAGE_IGNORE_INSERTS),                           \
-            NULL,                                                        \
-            RtlNtStatusToDosError(Status),                               \
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),                   \
-            (LPWSTR)&Message,                                            \
-            0,                                                           \
-            NULL);                                                       \
-                                                                         \
-        DEBUG_PRINT(                                                     \
-            "[!] Error on %hs[%u]:\r\n\tDescription: %ws\tFile: %hs",    \
-            __FUNCTION__,                                                \
-            __LINE__,                                                    \
-            (LPWSTR)Message,                                             \
-            __FILE__);                                                   \
-                                                                         \
-        LocalFree(Message);                                              \
+#define DEBUG_PRINT_NTSTATUS(Status)                                        \
+    {                                                                       \
+        PVOID Message;                                                      \
+                                                                            \
+        FormatMessageW(                                                     \
+            (FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM    \
+             | FORMAT_MESSAGE_IGNORE_INSERTS),                              \
+            NULL,                                                           \
+            RtlNtStatusToDosError(Status),                                  \
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),                      \
+            (LPWSTR)&Message,                                               \
+            0,                                                              \
+            NULL);                                                          \
+                                                                            \
+        if NT_SUCCESS (Status) {                                            \
+            DEBUG_PRINT(                                                    \
+                "[+] Succeed on %hs[%u]:\r\n\tDescription: %ws\tFile: %hs", \
+                __FUNCTION__,                                               \
+                __LINE__,                                                   \
+                (LPWSTR)Message,                                            \
+                __FILE__);                                                  \
+        } else {                                                            \
+            DEBUG_PRINT(                                                    \
+                "[!] Error on %hs[%u]:\r\n\tDescription: %ws\tFile: %hs",   \
+                __FUNCTION__,                                               \
+                __LINE__,                                                   \
+                (LPWSTR)Message,                                            \
+                __FILE__);                                                  \
+        }                                                                   \
+        LocalFree(Message);                                                 \
     }
+#define MSG_BOX(Format, ...) MsgBoxFormat(L##Format, __VA_ARGS__)
 
 static VOID DebugPrint(LPCWSTR Format, ...)
 {
@@ -121,7 +131,7 @@ static VOID DebugPrint(LPCWSTR Format, ...)
         WriteConsoleW(
             StandardHandle,
             UnicodeString.Buffer,
-            UnicodeString.MaximumLength / sizeof(WCHAR),
+            UnicodeString.Length / sizeof(WCHAR),
             &NumberOfWritten,
             NULL);
 
@@ -131,9 +141,21 @@ static VOID DebugPrint(LPCWSTR Format, ...)
     RtlFreeMemory(Storage);
 }
 
+static VOID MsgBoxFormat(LPCWSTR Message, ...)
+{
+    WCHAR Storage[MAX_PATH];
+
+    va_list argList;
+    va_start(argList, Message);
+    StringVPrintfWorkerW(Storage, MAX_PATH, NULL, Message, argList);
+    va_end(argList);
+
+    MessageBox(GetForegroundWindow(), Storage, NULL, MB_OK | MB_TOPMOST);
+}
+
 #else
 #define DEBUG_PRINT(Format, ...)
-#define DEBUG_PRINT_NTERROR(Status)
+#define DEBUG_PRINT_NTSTATUS(Status)
 #endif
 
 #ifdef __cplusplus

@@ -13,13 +13,13 @@ NTSTATUS KiExAllocatePool2(
 
     Status = MmGetSystemRoutineAddressW(L"ExAllocatePool2", &Address);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     Status = HookSystemRoutine(Driver, Address, Storage);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -41,13 +41,13 @@ NTSTATUS KiExFreePool(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ ULONGLONG Pointer)
 
     Status = MmGetSystemRoutineAddressW(L"ExFreePoolWithTag", &Address);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     Status = HookSystemRoutine(Driver, Address, Storage);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -66,13 +66,13 @@ NTSTATUS KiExReleaseResourceLite(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID R
 
     Status = MmGetSystemRoutineAddressW(L"ExReleaseResourceLite", &Address);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     Status = HookSystemRoutine(Driver, Address, Storage);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -94,13 +94,13 @@ NTSTATUS KiExAcquireResourceExclusiveLite(
 
     Status = MmGetSystemRoutineAddressW(L"ExAcquireResourceExclusiveLite", &Address);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     Status = HookSystemRoutine(Driver, Address, Storage);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -123,13 +123,13 @@ NTSTATUS KiRtlDeleteElementGenericTableAvl(
 
     Status = MmGetSystemRoutineAddressW(L"RtlDeleteElementGenericTableAvl", &Address);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     Status = HookSystemRoutine(Driver, Address, Storage);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -155,13 +155,13 @@ NTSTATUS KiRtlLookupElementGenericTableAvl(
 
     Status = MmGetSystemRoutineAddressW(L"RtlLookupElementGenericTableAvl", &Address);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     Status = HookSystemRoutine(Driver, Address, Storage);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 

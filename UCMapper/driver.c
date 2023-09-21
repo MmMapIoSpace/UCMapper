@@ -23,11 +23,43 @@ static NTSTATUS WriteSystemMemory(
     _In_reads_bytes_(Length) PVOID Source,
     _In_ SIZE_T Length);
 
+static NTSTATUS DeviceControl(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG* EncryptionKey,
+    _In_ PVOID Buffer,
+    _In_ SIZE_T BufferLength);
+
+static NTSTATUS ReadPhysicalMemory(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG PhysicalAddress,
+    _Out_writes_bytes_(BufferLength) PVOID Buffer,
+    _In_ SIZE_T BufferLength);
+
+static NTSTATUS WritePhysicalMemory(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG PhysicalAddress,
+    _In_reads_bytes_(BufferLength) PVOID Buffer,
+    _In_ SIZE_T BufferLength);
+
+static NTSTATUS GetPhysicalAddress(
+    _In_ HANDLE DeviceHandle,
+    _In_ ULONGLONG VirtualAddress,
+    _Out_ PULONGLONG PhysicalAddress);
+
+#pragma alloc_text(PAGE, LoadDriver)
+#pragma alloc_text(PAGE, UnloadDriver)
+#pragma alloc_text(PAGE, DeviceControl)
+#pragma alloc_text(PAGE, GetPhysicalAddress)
+#pragma alloc_text(PAGE, ReadPhysicalMemory)
+#pragma alloc_text(PAGE, WritePhysicalMemory)
+#pragma alloc_text(PAGE, ReadSystemMemory)
+#pragma alloc_text(PAGE, WriteSystemMemory)
+
 NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
 {
     UNICODE_STRING UnicodeString;
     NTSTATUS Status;
-    HANDLE Token;
+    HANDLE TokenHandle;
     TOKEN_PRIVILEGES Privileges;
     OBJECT_ATTRIBUTES ObjectAttributes;
     IO_STATUS_BLOCK IoStatusBlock;
@@ -52,23 +84,32 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
         NtCurrentThread(),
         TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES,
         FALSE,
-        &Token);
+        &TokenHandle);
+
     if (Status == STATUS_NO_TOKEN) {
-        Status
-            = NtOpenProcessToken(NtCurrentProcess(), TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES, &Token);
+        Status = NtOpenProcessToken(
+            NtCurrentProcess(),
+            TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES,
+            &TokenHandle);
     }
 
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
-    Status
-        = NtAdjustPrivilegesToken(Token, FALSE, &Privileges, sizeof(TOKEN_PRIVILEGES), NULL, NULL);
-    NtClose(Token);
+    Status = NtAdjustPrivilegesToken(
+        TokenHandle,
+        FALSE,
+        &Privileges,
+        sizeof(TOKEN_PRIVILEGES),
+        NULL,
+        NULL);
+
+    NtClose(TokenHandle);
 
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -89,7 +130,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
 
         Status = RtlFileWrite(DriverFullPath, DriverResource, sizeof(DriverResource));
         if NT_ERROR (Status) {
-            DEBUG_PRINT_NTERROR(Status);
+            DEBUG_PRINT_NTSTATUS(Status);
             return Status;
         }
 
@@ -97,13 +138,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
         // Set registry and load driver.
         //
 
-        RtlInitUnicodeString(&UnicodeString, DriverFullPath);
-        Status = RtlRegSetKeyValue(
-            ServiceName,
-            L"ImagePath",
-            REG_SZ,
-            UnicodeString.Buffer,
-            UnicodeString.MaximumLength);
+        Status = RtlRegSetKeyValueSz(ServiceName, L"ImagePath", DriverFullPath);
 
         if NT_SUCCESS (Status)
             Status = RtlRegSetKeyValue32(ServiceName, L"Type", 1);
@@ -112,7 +147,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
             RtlRegDeleteKey(ServiceName);
             RtlFileDelete(DriverFullPath);
 
-            DEBUG_PRINT_NTERROR(Status);
+            DEBUG_PRINT_NTSTATUS(Status);
             return Status;
         }
 
@@ -123,7 +158,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
             RtlRegDeleteKey(ServiceName);
             RtlFileDelete(DriverFullPath);
 
-            DEBUG_PRINT_NTERROR(Status);
+            DEBUG_PRINT_NTSTATUS(Status);
             return Status;
         }
 
@@ -153,7 +188,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
             RtlRegDeleteKey(ServiceName);
             RtlFileDelete(DriverFullPath);
 
-            DEBUG_PRINT_NTERROR(Status);
+            DEBUG_PRINT_NTSTATUS(Status);
             return Status;
         }
     }
@@ -172,7 +207,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
             RtlRegDeleteKey(ServiceName);
             RtlFileDelete(DriverFullPath);
 
-            DEBUG_PRINT_NTERROR(Status);
+            DEBUG_PRINT_NTSTATUS(Status);
             return Status;
         }
 
@@ -202,11 +237,10 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
             RtlFileDelete(DriverFullPath);
 
             Status = STATUS_ACCESS_DENIED;
-            DEBUG_PRINT_NTERROR(Status);
+            DEBUG_PRINT_NTSTATUS(Status);
             return Status;
         }
     }
-
 
     return Status;
 }
@@ -228,7 +262,7 @@ NTSTATUS UnloadDriver(_In_ PDEVICE_DRIVER_OBJECT DriverObject)
         DriverObject->DeviceHandle = NULL;
 
         if NT_ERROR (Status) {
-            DEBUG_PRINT_NTERROR(Status);
+            DEBUG_PRINT_NTSTATUS(Status);
         }
 
         RtlZeroMemory(DriverObject, sizeof(DEVICE_DRIVER_OBJECT));
@@ -240,17 +274,17 @@ NTSTATUS UnloadDriver(_In_ PDEVICE_DRIVER_OBJECT DriverObject)
     RtlInitUnicodeString(&UnicodeString, ServiceName);
     Status = NtUnloadDriver(&UnicodeString);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
     }
 
     Status = RtlRegDeleteKey(ServiceName);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
     }
 
     Status = RtlFileDelete(DriverFullPath);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
     }
 
     return Status;
@@ -345,7 +379,7 @@ static NTSTATUS ReadSystemMemory(
 
     Status = GetPhysicalAddress(DeviceHandle, Source, &PhysicalAddress);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -363,7 +397,7 @@ static NTSTATUS WriteSystemMemory(
 
     Status = GetPhysicalAddress(DeviceHandle, Destination, &PhysicalAddress);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 

@@ -10,7 +10,7 @@ int __cdecl wmain(_In_ int argc, _In_ wchar_t** argv)
 
     if (argc != 2) {
         Status = STATUS_INVALID_PARAMETER;
-        DEBUG_PRINT_NTERROR(STATUS_INVALID_PARAMETER);
+        DEBUG_PRINT_NTSTATUS(Status);
         DEBUG_PRINT("[!] invalid arguments.\r\n\t%ws <Driver Path>\r\n", argv[0]);
         return Status;
     }
@@ -21,7 +21,7 @@ int __cdecl wmain(_In_ int argc, _In_ wchar_t** argv)
     DriverPath = argv[1];
     Status     = RtlFileMapImage(DriverPath, &ImageBase, &ImageSize);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 

@@ -124,14 +124,14 @@ NTSTATUS MmGetSystemRoutineAddressA(_In_ LPCSTR RoutineName, _Out_ PULONGLONG Po
     *Pointer = 0;
     Status   = MmGetSystemModuleW(L"ntoskrnl.exe", &ModuleInformation);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     RtlInitUnicodeString(&UnicodeString, L"ntoskrnl.exe");
     Status = LdrLoadDll(NULL, NULL, &UnicodeString, (PVOID*)&ImageBase);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 

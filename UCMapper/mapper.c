@@ -781,58 +781,65 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
     typedef NTSTATUS (*PROTOTYPE_ROUTINE)(PVOID StartContex);
 
     SIZE_T procSize, procSize2, procSize3;
-    ULONGLONG Executor;
-    ULONGLONG Worker;
-    ULONGLONG Unloader;
+    ULONGLONG PoolExecutor;
+    ULONGLONG PoolWorker;
+    ULONGLONG PoolUnloader;
     NTSTATUS status;
     PROTOTYPE_ROUTINE MiLoadSystemImageRoutine;
-    UCHAR hookBuffer[12];
+    UCHAR Storage[12];
     MAPPER_EXECUTOR_CONTEXT Context;
-    ULONGLONG i;
-    PULONGLONG CurrentImport;
 
     status    = STATUS_MEMORY_NOT_ALLOCATED;
     procSize  = GetProcedureSize(MiLoadSystemImage);
     procSize2 = GetProcedureSize(MiLoadSystemImageWorker);
     procSize3 = GetProcedureSize(MiUnloadSystemImage);
 
-    KiExAllocatePool2(Driver, procSize, &Executor);
-    KiExAllocatePool2(Driver, procSize2, &Worker);
-    KiExAllocatePool2(Driver, procSize3, &Unloader);
+    KiExAllocatePool2(Driver, procSize, &PoolExecutor);
+    KiExAllocatePool2(Driver, procSize2, &PoolWorker);
+    KiExAllocatePool2(Driver, procSize3, &PoolUnloader);
 
     MiLoadSystemImageRoutine = (PROTOTYPE_ROUTINE)NtSetEaFile;
 
-    if (Executor != 0 && Worker != 0 && Unloader != 0) {
+    if (PoolExecutor != 0 && PoolWorker != 0 && PoolUnloader != 0) {
         //
         // write to allocation.
         //
 
-        status = Driver->WriteMemory(Driver->DeviceHandle, Executor, MiLoadSystemImage, procSize);
+        status
+            = Driver->WriteMemory(Driver->DeviceHandle, PoolExecutor, MiLoadSystemImage, procSize);
         if NT_ERROR (status) {
-            DEBUG_PRINT_NTERROR(status);
-            KiExFreePool(Driver, Executor);
-            KiExFreePool(Driver, Unloader);
-            KiExFreePool(Driver, Worker);
+            DEBUG_PRINT_NTSTATUS(status);
+            KiExFreePool(Driver, PoolExecutor);
+            KiExFreePool(Driver, PoolUnloader);
+            KiExFreePool(Driver, PoolWorker);
             return status;
         }
 
-        status
-            = Driver->WriteMemory(Driver->DeviceHandle, Worker, MiLoadSystemImageWorker, procSize2);
+        status = Driver->WriteMemory(
+            Driver->DeviceHandle,
+            PoolWorker,
+            MiLoadSystemImageWorker,
+            procSize2);
+
         if NT_ERROR (status) {
-            DEBUG_PRINT_NTERROR(status);
-            KiExFreePool(Driver, Executor);
-            KiExFreePool(Driver, Unloader);
-            KiExFreePool(Driver, Worker);
+            DEBUG_PRINT_NTSTATUS(status);
+            KiExFreePool(Driver, PoolExecutor);
+            KiExFreePool(Driver, PoolUnloader);
+            KiExFreePool(Driver, PoolWorker);
             return status;
         }
 
-        status
-            = Driver->WriteMemory(Driver->DeviceHandle, Unloader, MiUnloadSystemImage, procSize3);
+        status = Driver->WriteMemory(
+            Driver->DeviceHandle,
+            PoolUnloader,
+            MiUnloadSystemImage,
+            procSize3);
+
         if NT_ERROR (status) {
-            DEBUG_PRINT_NTERROR(status);
-            KiExFreePool(Driver, Executor);
-            KiExFreePool(Driver, Unloader);
-            KiExFreePool(Driver, Worker);
+            DEBUG_PRINT_NTSTATUS(status);
+            KiExFreePool(Driver, PoolExecutor);
+            KiExFreePool(Driver, PoolUnloader);
+            KiExFreePool(Driver, PoolWorker);
             return status;
         }
 
@@ -842,104 +849,47 @@ NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBa
 
         Context.ContextSize      = sizeof(MAPPER_EXECUTOR_CONTEXT);
         Context.DriverStatus     = STATUS_UNSUCCESSFUL;
-        Context.WorkerThread     = (PKSTART_ROUTINE)Worker;
+        Context.WorkerThread     = (PKSTART_ROUTINE)PoolWorker;
         Context.ImageBase        = ImageBase;
         Context.ImageSize        = RtlImageNtHeader(ImageBase)->OptionalHeader.SizeOfImage;
         Context.MemoryDescriptor = 0;
         Context.MapSection       = 0;
-        Context.Unloader         = (PVOID)Unloader;
+        Context.Unloader         = (PVOID)PoolUnloader;
 
-        //
-        // Resolve Import Table.
-        //
+        status = MiResolveImportTable(&Context.ImportTable);
+        if NT_ERROR (status) {
+            KiExFreePool(Driver, PoolExecutor);
+            KiExFreePool(Driver, PoolUnloader);
+            KiExFreePool(Driver, PoolWorker);
 
-        Context.ImportTable.PsLoadedModuleList
-            = (PVOID)GetSystemRoutineAddressA("PsLoadedModuleList");
-        Context.ImportTable.memcpy = (PVOID)GetSystemRoutineAddressA("memcpy");
-        Context.ImportTable.memset = (PVOID)GetSystemRoutineAddressA("memset");
-        Context.ImportTable.MmGetSystemRoutineAddress
-            = (PVOID)GetSystemRoutineAddressA("MmGetSystemRoutineAddress");
-        Context.ImportTable.MmAllocatePagesForMdlEx
-            = (PVOID)GetSystemRoutineAddressA("MmAllocatePagesForMdlEx");
-        Context.ImportTable.MmFreePagesFromMdl
-            = (PVOID)GetSystemRoutineAddressA("MmFreePagesFromMdl");
-        Context.ImportTable.MmMapLockedPagesSpecifyCache
-            = (PVOID)GetSystemRoutineAddressA("MmMapLockedPagesSpecifyCache");
-        Context.ImportTable.MmProtectMdlSystemAddress
-            = (PVOID)GetSystemRoutineAddressA("MmProtectMdlSystemAddress");
-        Context.ImportTable.KeWaitForSingleObject
-            = (PVOID)GetSystemRoutineAddressA("KeWaitForSingleObject");
-        Context.ImportTable.KeDelayExecutionThread
-            = (PVOID)GetSystemRoutineAddressA("KeDelayExecutionThread");
-        Context.ImportTable.ExAllocatePool2 = (PVOID)GetSystemRoutineAddressA("ExAllocatePool2");
-        Context.ImportTable.ExFreePoolWithTag
-            = (PVOID)GetSystemRoutineAddressA("ExFreePoolWithTag");
-        Context.ImportTable.RtlImageNtHeader = (PVOID)GetSystemRoutineAddressA("RtlImageNtHeader");
-        Context.ImportTable.RtlInitUnicodeString
-            = (PVOID)GetSystemRoutineAddressA("RtlInitUnicodeString");
-        Context.ImportTable.RtlInitAnsiString
-            = (PVOID)GetSystemRoutineAddressA("RtlInitAnsiString");
-        Context.ImportTable.RtlAnsiStringToUnicodeString
-            = (PVOID)GetSystemRoutineAddressA("RtlAnsiStringToUnicodeString");
-        Context.ImportTable.RtlEqualUnicodeString
-            = (PVOID)GetSystemRoutineAddressA("RtlEqualUnicodeString");
-        Context.ImportTable.RtlFreeUnicodeString
-            = (PVOID)GetSystemRoutineAddressA("RtlFreeUnicodeString");
-        Context.ImportTable.RtlImageDirectoryEntryToData
-            = (PVOID)GetSystemRoutineAddressA("RtlImageDirectoryEntryToData");
-        Context.ImportTable.RtlFindExportedRoutineByName
-            = (PVOID)GetSystemRoutineAddressA("RtlFindExportedRoutineByName");
-        Context.ImportTable.ObReferenceObjectByHandle
-            = (PVOID)GetSystemRoutineAddressA("ObReferenceObjectByHandle");
-        Context.ImportTable.ObfDereferenceObject
-            = (PVOID)GetSystemRoutineAddressA("ObfDereferenceObject");
-        Context.ImportTable.PsCreateSystemThread
-            = (PVOID)GetSystemRoutineAddressA("PsCreateSystemThread");
-        Context.ImportTable.PsTerminateSystemThread
-            = (PVOID)GetSystemRoutineAddressA("PsTerminateSystemThread");
-        Context.ImportTable.PsGetThreadExitStatus
-            = (PVOID)GetSystemRoutineAddressA("PsGetThreadExitStatus");
-        Context.ImportTable.ZwClose       = (PVOID)GetSystemRoutineAddressA("ZwClose");
-        Context.ImportTable.IoAllocateMdl = (PVOID)GetSystemRoutineAddressA("IoAllocateMdl");
-        Context.ImportTable.IoFreeMdl     = (PVOID)GetSystemRoutineAddressA("IoFreeMdl");
-
-        CurrentImport = (PULONGLONG)&Context.ImportTable;
-        for (i = 0; i < sizeof(Context.ImportTable) / sizeof(PVOID); i += 1) {
-            if (CurrentImport[i] == 0) {
-                DEBUG_PRINT("[!] CurrentImport[%llu] not found: 0x%llX.", i, CurrentImport[i]);
-
-                status = STATUS_PROCEDURE_NOT_FOUND;
-                DEBUG_PRINT_NTERROR(status);
-                KiExFreePool(Driver, Executor);
-                KiExFreePool(Driver, Unloader);
-                KiExFreePool(Driver, Worker);
-                return status;
-            }
+            status = STATUS_PROCEDURE_NOT_FOUND;
+            DEBUG_PRINT_NTSTATUS(status);
+            return status;
         }
 
         //
         // Invoke executor.
         //
 
-        status = HookSystemRoutine(Driver, Executor, hookBuffer);
+        status = HookSystemRoutine(Driver, PoolExecutor, Storage);
         if NT_SUCCESS (status) {
             status = MiLoadSystemImageRoutine(&Context);
-            UnhookSystemRoutine(Driver, hookBuffer);
+            UnhookSystemRoutine(Driver, Storage);
         }
     }
 
     //
     // Release allocation
     //
-    if (Executor)
-        KiExFreePool(Driver, Executor);
+    if (PoolExecutor)
+        KiExFreePool(Driver, PoolExecutor);
 
-    if (Worker)
-        KiExFreePool(Driver, Worker);
+    if (PoolWorker)
+        KiExFreePool(Driver, PoolWorker);
 
     if NT_ERROR (status)
-        if (Unloader)
-            KiExFreePool(Driver, Unloader);
+        if (PoolUnloader)
+            KiExFreePool(Driver, PoolUnloader);
 
     return status;
 }

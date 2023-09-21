@@ -19,12 +19,15 @@ FORCEINLINE BOOLEAN RtlFreeMemory(_In_ PVOID Pointer)
 }
 
 NTSTATUS ObGetObjectByHandle(_In_ HANDLE Handle, _Out_ PULONGLONG Pointer);
+
 NTSTATUS MmGetSystemModuleA(
     _In_ LPCSTR ModuleName,
     _Out_ PRTL_PROCESS_MODULE_INFORMATION ModuleInformation);
+
 NTSTATUS MmGetSystemModuleW(
     _In_ LPCWSTR ModuleName,
     _Out_ PRTL_PROCESS_MODULE_INFORMATION ModuleInformation);
+
 NTSTATUS MmGetSystemRoutineAddressA(_In_ LPCSTR RoutineName, _Out_ PULONGLONG Pointer);
 NTSTATUS MmGetSystemRoutineAddressW(_In_ LPCWSTR ModuleName, _Out_ PULONGLONG Pointer);
 

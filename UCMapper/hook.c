@@ -25,7 +25,7 @@ NTSTATUS HookSystemRoutine(
     Address = GetSystemRoutineAddressW(RoutineName);
     if (Address == 0) {
         Status = STATUS_NOT_FOUND;
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 

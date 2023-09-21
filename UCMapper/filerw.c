@@ -33,7 +33,7 @@ NTSTATUS RtlFileRead(_In_ LPCWSTR Source, _Out_ PVOID* Buffer, _Out_ PSIZE_T Fil
         RtlFreeUnicodeString(&UnicodeString);
 
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -47,7 +47,7 @@ NTSTATUS RtlFileRead(_In_ LPCWSTR Source, _Out_ PVOID* Buffer, _Out_ PSIZE_T Fil
     if NT_ERROR (Status) {
         NtClose(FileHandle);
 
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -73,7 +73,7 @@ NTSTATUS RtlFileRead(_In_ LPCWSTR Source, _Out_ PVOID* Buffer, _Out_ PSIZE_T Fil
         NtClose(FileHandle);
         RtlFreeMemory(Allocation);
 
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -123,7 +123,7 @@ NTSTATUS RtlFileWrite(
         RtlFreeUnicodeString(&UnicodeString);
 
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -145,7 +145,7 @@ NTSTATUS RtlFileWrite(
     }
 
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         NtClose(FileHandle);
         return Status;
     }
@@ -184,7 +184,7 @@ NTSTATUS RtlFileMap(_In_ LPCWSTR Source, _Out_ PVOID* BaseAddress, _Out_ PSIZE_T
         RtlFreeUnicodeString(&UnicodeString);
 
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -200,7 +200,7 @@ NTSTATUS RtlFileMap(_In_ LPCWSTR Source, _Out_ PVOID* BaseAddress, _Out_ PSIZE_T
 
     if NT_ERROR (Status) {
         NtClose(FileHandle);
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -223,7 +223,7 @@ NTSTATUS RtlFileMap(_In_ LPCWSTR Source, _Out_ PVOID* BaseAddress, _Out_ PSIZE_T
         *BaseAddress = NULL;
         *ViewSize    = 0;
 
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -255,7 +255,7 @@ NTSTATUS RtlFileMapImage(_In_ LPCWSTR Source, _Out_ PVOID* BaseAddress, _Out_ PS
         RtlFreeUnicodeString(&UnicodeString);
 
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -271,7 +271,7 @@ NTSTATUS RtlFileMapImage(_In_ LPCWSTR Source, _Out_ PVOID* BaseAddress, _Out_ PS
 
     if NT_ERROR (Status) {
         NtClose(FileHandle);
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -293,7 +293,7 @@ NTSTATUS RtlFileMapImage(_In_ LPCWSTR Source, _Out_ PVOID* BaseAddress, _Out_ PS
         *BaseAddress = NULL;
         *ViewSize    = 0;
 
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -336,14 +336,14 @@ NTSTATUS RtlFileToImage(_In_ LPCWSTR Source, _In_ LPCWSTR Destination)
 
     Status = RtlFileRead(Source, &FileBase, &FileSize);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
     ImageHeader = RtlImageNtHeader(FileBase);
     if (ImageHeader == NULL) {
         Status = STATUS_INVALID_IMAGE_FORMAT;
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
         return Status;
     }
 
@@ -368,7 +368,7 @@ NTSTATUS RtlFileToImage(_In_ LPCWSTR Source, _In_ LPCWSTR Destination)
 
     Status = RtlFileWrite(Destination, ImageBase, ImageSize);
     if NT_ERROR (Status) {
-        DEBUG_PRINT_NTERROR(Status);
+        DEBUG_PRINT_NTSTATUS(Status);
     }
 
     RtlFreeMemory(FileBase);

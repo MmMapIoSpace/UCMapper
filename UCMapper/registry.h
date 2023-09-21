@@ -24,3 +24,16 @@ RtlRegSetKeyValue64(_In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, ULONGLONG
 {
     return RtlRegSetKeyValue(RegistryPath, Valuename, REG_QWORD, &Value, sizeof(ULONGLONG));
 }
+
+FORCEINLINE NTSTATUS
+RtlRegSetKeyValueSz(_In_ LPCWSTR RegistryPath, _In_ LPCWSTR Valuename, LPCWSTR Value)
+{
+    UNICODE_STRING UnicodeString;
+    RtlInitUnicodeString(&UnicodeString, Value);
+    return RtlRegSetKeyValue(
+        RegistryPath,
+        Valuename,
+        REG_SZ,
+        UnicodeString.Buffer,
+        UnicodeString.MaximumLength);
+}
