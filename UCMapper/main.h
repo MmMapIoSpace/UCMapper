@@ -10,11 +10,10 @@ extern "C" {
 #include <Windows.h>
 #include <ntstatus.h>
 #include <strsafe.h>
-
 #include "halamd64.h"
 #include "ntdll.h"
+
 #include "driver.h"
-#include "mapper.h"
 #include "routine.h"
 #include "hook.h"
 #include "hde64.h"
@@ -22,11 +21,12 @@ extern "C" {
 #include "filerw.h"
 #include "driverlist.h"
 #include "kernel.h"
+#include "mapper.h"
 
 #pragma intrinsic(memcpy)
 #pragma intrinsic(memset)
 
-#ifndef DISABLE_NTSTATUS_ERROR_OUTPUT
+#ifndef DISABLE_OUTPUT
 #define DEBUG_PRINT(Format, ...) DebugPrint(L##Format L"\r\n", __VA_ARGS__)
 #define DEBUG_PRINT_NTSTATUS(Status)                                        \
     {                                                                       \
@@ -60,6 +60,11 @@ extern "C" {
         LocalFree(Message);                                                 \
     }
 #define MSG_BOX(Format, ...) MsgBoxFormat(L##Format, __VA_ARGS__)
+
+#else
+#define DEBUG_PRINT(Format, ...)
+#define DEBUG_PRINT_NTSTATUS(Status)
+#endif
 
 static VOID DebugPrint(LPCWSTR Format, ...)
 {
@@ -152,11 +157,6 @@ static VOID MsgBoxFormat(LPCWSTR Message, ...)
 
     MessageBox(GetForegroundWindow(), Storage, NULL, MB_OK | MB_TOPMOST);
 }
-
-#else
-#define DEBUG_PRINT(Format, ...)
-#define DEBUG_PRINT_NTSTATUS(Status)
-#endif
 
 #ifdef __cplusplus
 }

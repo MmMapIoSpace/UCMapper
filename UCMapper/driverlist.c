@@ -25,88 +25,7 @@ static UCHAR HashCacheLockPattern[] = "\x48\x8D\x0D";
 static CHAR HashCacheLockMask[]     = "xxx";
 #endif
 
-//
-// Utility
-//
-
-PVOID MiFindPattern(
-    _In_reads_bytes_(Length) PVOID BaseAddress,
-    _In_ SIZE_T Length,
-    _In_ PUCHAR Pattern,
-    _In_ PCHAR Mask)
-{
-    ANSI_STRING v1;
-    PVOID v2;
-    BOOLEAN v3;
-    SIZE_T i;
-    PUCHAR v4;
-    SIZE_T j;
-
-    v2 = NULL;
-    RtlInitString(&v1, Mask);
-    for (j = 0; j < (Length - v1.Length); j += 1) {
-        v3 = TRUE;
-        v4 = (PUCHAR)BaseAddress + j;
-
-        for (i = 0; i < v1.Length; i += 1) {
-            if (v1.Buffer[i] == 'x' && Pattern[i] != v4[i]) {
-                v3 = FALSE;
-                break;
-            }
-        }
-
-        if (v3 == TRUE) {
-            v2 = (PVOID)((PCHAR)BaseAddress + j);
-            break;
-        }
-    }
-    return v2;
-}
-
-PVOID KiFindPattern(
-    _In_ PDEVICE_DRIVER_OBJECT Driver,
-    _In_ PVOID BaseAddress,
-    _In_ SIZE_T Length,
-    _In_ PUCHAR Pattern,
-    _In_ PCHAR Mask)
-{
-    ULONGLONG v1 = 0;
-    PVOID v2     = RtlAllocateMemory(Length);
-
-    if NT_SUCCESS (Driver->ReadMemory(Driver->DeviceHandle, (ULONGLONG)BaseAddress, v2, Length)) {
-        v1 = (ULONGLONG)MiFindPattern(v2, Length, Pattern, Mask);
-
-        if (v1 != 0) {
-            v1 -= (ULONGLONG)v2;
-            v1 += (ULONGLONG)BaseAddress;
-        }
-
-        RtlFreeMemory(v2);
-    }
-
-    return (PVOID)v1;
-}
-
-PVOID KiRelativeVirtualAddress(
-    _In_ PDEVICE_DRIVER_OBJECT Driver,
-    _In_ PVOID Address,
-    _In_ LONG Offsets,
-    _In_ SIZE_T Size)
-{
-    LONG VA        = 0;
-    PVOID Resolved = 0;
-
-    if NT_SUCCESS (Driver->ReadMemory(
-                       Driver->DeviceHandle,
-                       (ULONGLONG)Address + Offsets,
-                       &VA,
-                       sizeof(LONG))) {
-        Resolved = (PVOID)((ULONGLONG)Address + Size + VA);
-    }
-
-    return Resolved;
-}
-
+#if 1
 //
 // Main code.
 //
@@ -206,8 +125,8 @@ BOOLEAN PidDBCacheTable(
     PVOID PiDDBLock;
     PRTL_AVL_TABLE PiDDBCacheTable;
     RTL_PROCESS_MODULE_INFORMATION KernelModule;
-    PPIDDB_CACHE_ENTRY pFoundEntry;
-    PIDDB_CACHE_ENTRY LocalEntry;
+    PDDBCACHE_ENTRY pFoundEntry;
+    DDBCACHE_ENTRY LocalEntry;
     CHAR v1[] = {'n', 't', 'o', 's', 'k', 'r', 'n', 'l', '.', 'e', 'x', 'e', '\0'};
 
     RtlZeroMemory(&KernelModule, sizeof(KernelModule));
@@ -252,7 +171,7 @@ BOOLEAN PidDBCacheTable(
     // search our entry in the table
     //
     LocalEntry.TimeDateStamp = TimeDateStamp;
-    RtlInitUnicodeString(&LocalEntry.DriverName, DriverFilename);
+    RtlInitUnicodeString(&LocalEntry.Name, DriverFilename);
     if (NT_ERROR(
             KiRtlLookupElementGenericTableAvl(Driver, PiDDBCacheTable, &LocalEntry, &pFoundEntry))
         || pFoundEntry == NULL) {
@@ -265,7 +184,7 @@ BOOLEAN PidDBCacheTable(
     PLIST_ENTRY PreviousList = NULL;
     if NT_ERROR (Driver->ReadMemory(
                      Driver->DeviceHandle,
-                     (ULONGLONG)pFoundEntry + FIELD_OFFSET(PIDDB_CACHE_ENTRY, List.Blink),
+                     (ULONGLONG)pFoundEntry + FIELD_OFFSET(DDBCACHE_ENTRY, List.Blink),
                      &PreviousList,
                      sizeof(PLIST_ENTRY))) {
         DEBUG_PRINT("[-] Can't get prev entry");
@@ -276,7 +195,7 @@ BOOLEAN PidDBCacheTable(
     PLIST_ENTRY next = NULL;
     if NT_ERROR (Driver->ReadMemory(
                      Driver->DeviceHandle,
-                     (ULONGLONG)pFoundEntry + FIELD_OFFSET(PIDDB_CACHE_ENTRY, List.Flink),
+                     (ULONGLONG)pFoundEntry + FIELD_OFFSET(DDBCACHE_ENTRY, List.Flink),
                      &next,
                      sizeof(PLIST_ENTRY))) {
         DEBUG_PRINT("[-] Can't get next entry");
@@ -478,20 +397,289 @@ BOOLEAN KernelHashBucketList(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ LPWSTR Driv
 // Public api
 //
 
-BOOLEAN RemoveDriverRuntimeList(
-    _In_ PDEVICE_DRIVER_OBJECT Driver,
-    _In_ LPCWSTR DriverName,
-    _In_ ULONG TimedateStamps)
+NTSTATUS RemoveDriverRuntimeList(IN PDEVICE_DRIVER_OBJECT Driver, IN LPCWSTR DriverName)
 {
-    BOOLEAN v1;
+    NTSTATUS Status;
+    RTL_PROCESS_MODULE_INFORMATION Module;
+    extern ULONGLONG DriverResource[5517];
 
-    v1 = PidDBCacheTable(Driver, (LPWSTR)DriverName, TimedateStamps);
+    Status = MmGetSystemModuleW(DriverName, &Module);
+    if NT_SUCCESS (Status) {
+        Status = STATUS_ACCESS_DENIED;
+        if (PidDBCacheTable(
+                Driver,
+                (LPWSTR)DriverName,
+                RtlImageNtHeader(DriverResource)->FileHeader.TimeDateStamp)) {
+            if (KernelHashBucketList(Driver, (LPWSTR)DriverName)) {
+                if (MmUnloadedDriver(Driver))
+                    Status = STATUS_SUCCESS;
+            }
+        }
+    }
 
-    if (v1 == TRUE)
-        v1 = KernelHashBucketList(Driver, (LPWSTR)DriverName);
-
-    if (v1 == TRUE)
-        v1 = MmUnloadedDriver(Driver);
-
-    return v1;
+    return Status;
 }
+
+#else
+typedef struct _DRIVER_RUNTIME_WORKER_CONTEXT
+{
+    struct
+    {
+        UNICODE_STRING DriverName;
+    };
+
+    struct
+    {
+        PERESOURCE PiDDBLock;
+        PRTL_AVL_TABLE PiDDBCacheTable;
+        PERESOURCE HashBucketLock;
+        PHASH_BUCKET_ENTRY HashBucketList;
+    };
+
+    KERNEL_IMPORT_TABLE Table;
+} DRIVER_RUNTIME_WORKER_CONTEXT, *PDRIVER_RUNTIME_WORKER_CONTEXT;
+
+FORCEINLINE PKLDR_DATA_TABLE_ENTRY KERNEL_MODE_API
+LookupDataTableEntry(IN PKERNEL_IMPORT_TABLE Table, IN PUNICODE_STRING DriverName)
+{
+    PLIST_ENTRY Entry;
+    PKLDR_DATA_TABLE_ENTRY CurrentTable;
+    PKLDR_DATA_TABLE_ENTRY Result;
+    PKLDR_DATA_TABLE_ENTRY KernelTable;
+
+    Result = NULL;
+    KernelTable
+        = CONTAINING_RECORD(Table->PsLoadedModuleList, KLDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
+
+    for (Entry = KernelTable->InLoadOrderLinks.Flink; Entry != &KernelTable->InLoadOrderLinks;
+         Entry = Entry->Flink) {
+        CurrentTable = CONTAINING_RECORD(Entry, KLDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
+        if (Table->RtlEqualUnicodeString(&CurrentTable->BaseDllName, DriverName, TRUE)) {
+            Result = CurrentTable;
+            break;
+        }
+    }
+    return Result;
+}
+
+static NTSTATUS KERNEL_MODE_API
+RemoveDriverRuntimeListWorker(IN PDRIVER_RUNTIME_WORKER_CONTEXT Context)
+{
+    PKLDR_DATA_TABLE_ENTRY DriverTable;
+    NTSTATUS Status;
+    DDBCACHE_ENTRY LocalEntry;
+    PDDBCACHE_ENTRY CacheEntry;
+
+    PKERNEL_IMPORT_TABLE Import;
+
+    Import      = &Context->Table;
+    DriverTable = LookupDataTableEntry(Import, &Context->DriverName);
+    if (DriverTable == NULL) {
+        Status = STATUS_INVALID_PARAMETER;
+        return Status;
+    }
+
+    // DDB_CACHE_ENTRY
+    Status = STATUS_RESOURCE_NOT_OWNED;
+    if (Import->ExAcquireResourceExclusiveLite(Context->PiDDBLock, TRUE)) {
+        LocalEntry.TimeDateStamp      = DriverTable->TimeDateStamp;
+        LocalEntry.Name.Buffer        = DriverTable->BaseDllName.Buffer;
+        LocalEntry.Name.Length        = DriverTable->BaseDllName.Length;
+        LocalEntry.Name.MaximumLength = DriverTable->BaseDllName.MaximumLength;
+        CacheEntry = Import->RtlLookupElementGenericTableAvl(Context->PiDDBCacheTable, &LocalEntry);
+        Status     = STATUS_NOT_FOUND;
+
+        if (CacheEntry) {
+            PLIST_ENTRY NextEntry, PrevEntry;
+            NextEntry        = CacheEntry->List.Flink;
+            PrevEntry        = CacheEntry->List.Blink;
+            PrevEntry->Flink = NextEntry;
+            NextEntry->Blink = PrevEntry;
+
+            if (Import->RtlDeleteElementGenericTableAvl(Context->PiDDBCacheTable, CacheEntry)) {
+                if (Context->PiDDBCacheTable->DeleteCount > 0) {
+                    Context->PiDDBCacheTable->DeleteCount--;
+                    Status = STATUS_SUCCESS;
+                }
+            }
+        }
+        Import->ExReleaseResourceLite(Context->PiDDBLock);
+    }
+
+    // HASH_BUCKET_LIST
+    if NT_SUCCESS (Status) {
+        PHASH_BUCKET_ENTRY HashPrevEntry;
+        USHORT DriverNameVA;
+        LPWSTR DriverNameBuffer;
+        UNICODE_STRING BaseDriverName;
+
+        Status = STATUS_RESOURCE_NOT_OWNED;
+        if (Import->ExAcquireResourceExclusiveLite(Context->HashBucketLock, TRUE)) {
+            HashPrevEntry = Context->HashBucketList;
+
+            Status = STATUS_MEMORY_NOT_ALLOCATED;
+            while (Context->HashBucketList->Next != NULL) {
+                if (Context->HashBucketList->DriverName.Buffer) {
+                    DriverNameVA = Context->HashBucketList->DriverName.Length
+                                   - DriverTable->BaseDllName.Length;
+                    DriverNameVA     /= sizeof(WCHAR);
+                    DriverNameBuffer  = Context->HashBucketList->DriverName.Buffer + DriverNameVA;
+                    Import->RtlInitUnicodeString(&BaseDriverName, DriverNameBuffer);
+
+                    Status = STATUS_NOT_MAPPED_DATA;
+                    if (Import->RtlEqualUnicodeString(
+                            &BaseDriverName,
+                            &DriverTable->BaseDllName,
+                            TRUE)
+                        == TRUE) {
+                        HashPrevEntry->Next = Context->HashBucketList->Next;
+
+                        Import->memset(
+                            Context->HashBucketList->CertHash,
+                            0,
+                            sizeof(Context->HashBucketList->CertHash));
+
+                        Import->memset(
+                            Context->HashBucketList->DriverName.Buffer,
+                            0,
+                            Context->HashBucketList->DriverName.Length);
+
+                        Import->memset(
+                            &Context->HashBucketList->DriverName,
+                            0,
+                            sizeof(Context->HashBucketList->DriverName));
+
+                        Import->ExFreePoolWithTag(Context->HashBucketList, 0);
+                        Context->HashBucketList = NULL;
+
+                        Status = STATUS_SUCCESS;
+                        break;
+                    }
+                }
+
+                HashPrevEntry           = Context->HashBucketList;
+                Context->HashBucketList = Context->HashBucketList->Next;
+            }
+
+            Import->ExReleaseResourceLite(Context->HashBucketLock);
+        }
+    }
+
+    DriverTable->BaseDllName.Length = 0;
+    return Status;
+}
+
+NTSTATUS RemoveDriverRuntimeList(IN PDEVICE_DRIVER_OBJECT Driver, IN LPCWSTR DriverName)
+{
+    NTSTATUS Status;
+    RTL_PROCESS_MODULE_INFORMATION SystemModule;
+    RTL_PROCESS_MODULE_INFORMATION CiModule;
+    PVOID PiDDBLock;
+    PRTL_AVL_TABLE PiDDBCacheTable;
+    ULONGLONG WorkerRoutine;
+    DRIVER_RUNTIME_WORKER_CONTEXT WorkerContext;
+    UCHAR Storage[12];
+    SIZE_T WorkerSize;
+
+    CHAR v1[] = {'n', 't', 'o', 's', 'k', 'r', 'n', 'l', '.', 'e', 'x', 'e', '\0'};
+    CHAR v2[] = {'c', 'i', '.', 'd', 'l', 'l', '\0'};
+
+    // Query Module Information.
+    RtlSecureZeroMemory(&WorkerContext, sizeof(WorkerContext));
+    RtlSecureZeroMemory(&SystemModule, sizeof(SystemModule));
+    RtlSecureZeroMemory(&CiModule, sizeof(CiModule));
+    Status = MmGetSystemModuleA(v1, &SystemModule);
+
+    if NT_SUCCESS (Status)
+        Status = MmGetSystemModuleA(v2, &CiModule);
+
+    if NT_ERROR (Status) {
+        DEBUG_PRINT_NTSTATUS(Status);
+        return Status;
+    }
+
+    // Find all needed pattern.
+    PiDDBLock = KiFindPattern(
+        Driver,
+        SystemModule.ImageBase,
+        SystemModule.ImageSize,
+        PiDDBLockPattern,
+        PiDDBLockMask);
+
+    PiDDBCacheTable = KiFindPattern(
+        Driver,
+        SystemModule.ImageBase,
+        SystemModule.ImageSize,
+        PiDDBCacheTablePattern,
+        PiDDBCacheTableMask);
+
+    // Thanks @KDIo3 and @Swiftik from UnknownCheats
+    PVOID HashBucketList = KiFindPattern(
+        Driver,
+        CiModule.ImageBase,
+        CiModule.ImageSize,
+        HashBucketListPattern,
+        HashBucketListMask);
+
+    PVOID HashBucketLock = KiFindPattern(
+        Driver,
+        (PCHAR)HashBucketList - 50,
+        50,
+        HashCacheLockPattern,
+        HashCacheLockMask);
+
+    if (PiDDBLock && PiDDBCacheTable && HashBucketList && HashBucketLock) {
+        PiDDBLock       = KiRelativeVirtualAddress(Driver, PiDDBLock, 3, 7);
+        PiDDBCacheTable = KiRelativeVirtualAddress(Driver, PiDDBCacheTable, 3, 7);
+        HashBucketList  = KiRelativeVirtualAddress(Driver, HashBucketList, 3, 7);
+        HashBucketLock  = KiRelativeVirtualAddress(Driver, HashBucketLock, 3, 7);
+    }
+
+    if (PiDDBLock == 0 || PiDDBCacheTable == 0 || HashBucketList == 0 || HashBucketLock == 0) {
+        Status = STATUS_INVALID_SIGNATURE;
+        DEBUG_PRINT_NTSTATUS(Status);
+        return Status;
+    }
+
+    // Create Context.
+    RtlInitUnicodeString(&WorkerContext.DriverName, DriverName);
+    WorkerContext.PiDDBLock       = PiDDBLock;
+    WorkerContext.PiDDBCacheTable = PiDDBCacheTable;
+    WorkerContext.HashBucketList  = HashBucketList;
+    WorkerContext.HashBucketLock  = HashBucketLock;
+
+    Status = MiResolveImportTable(&WorkerContext.Table);
+    if NT_ERROR (Status) {
+        DEBUG_PRINT_NTSTATUS(Status);
+        return Status;
+    }
+
+    WorkerSize = GetProcedureSize((PVOID)RemoveDriverRuntimeListWorker);
+    Status     = KiExAllocatePool2(Driver, WorkerSize, &WorkerRoutine);
+
+    if NT_SUCCESS (Status) {
+        Status = Driver->WriteMemory(
+            Driver->DeviceHandle,
+            WorkerRoutine,
+            (PVOID)RemoveDriverRuntimeListWorker,
+            WorkerSize);
+
+        if NT_SUCCESS (Status) {
+            Status = HookSystemRoutine(Driver, WorkerRoutine, Storage);
+            if NT_SUCCESS (Status) {
+                typedef NTSTATUS (*WorkerRoutine_t)(IN PVOID Context);
+                WorkerRoutine_t Worker = (WorkerRoutine_t)NtSetEaFile;
+
+                Status = Worker(&WorkerContext);
+                DEBUG_PRINT_NTSTATUS(Status);
+
+                UnhookSystemRoutine(Driver, Storage);
+            }
+        }
+
+        KiExFreePool(Driver, WorkerRoutine);
+    }
+
+    return Status;
+}
+#endif

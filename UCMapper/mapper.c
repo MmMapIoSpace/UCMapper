@@ -717,65 +717,6 @@ NTSTATUS MiLoadSystemImage(_In_ PMAPPER_EXECUTOR_CONTEXT StartContext)
 
 #pragma endregion code_running_on_system_address_space
 
-static NTSTATUS MiResolveImportTable(IN OUT PKERNEL_IMPORT_TABLE Table)
-{
-#define RESOLVE_IMPORT_TABLE(Address)                                 \
-    Table->##Address = NULL;                                          \
-    {                                                                 \
-        Table->##Address = (PVOID)GetSystemRoutineAddressA(#Address); \
-        if (Table->##Address == NULL) {                               \
-            DEBUG_PRINT("[!] Procedure %hs not found.", #Address);    \
-            return STATUS_PROCEDURE_NOT_FOUND;                        \
-        }                                                             \
-    }
-
-    RtlSecureZeroMemory(Table, sizeof(KERNEL_IMPORT_TABLE));
-    RESOLVE_IMPORT_TABLE(PsLoadedModuleList);
-    RESOLVE_IMPORT_TABLE(PsInitialSystemProcess);
-    RESOLVE_IMPORT_TABLE(memcpy);
-    RESOLVE_IMPORT_TABLE(memset);
-    RESOLVE_IMPORT_TABLE(KeSetEvent);
-    RESOLVE_IMPORT_TABLE(MmMapViewInSystemSpace);
-    RESOLVE_IMPORT_TABLE(MmUnmapViewInSystemSpace);
-    RESOLVE_IMPORT_TABLE(MmCopyMemory);
-    RESOLVE_IMPORT_TABLE(MmMapIoSpaceEx);
-    RESOLVE_IMPORT_TABLE(MmUnmapIoSpace);
-    RESOLVE_IMPORT_TABLE(PsLookupProcessByProcessId);
-    RESOLVE_IMPORT_TABLE(RtlInitUnicodeString);
-    RESOLVE_IMPORT_TABLE(ZwOpenFile);
-    RESOLVE_IMPORT_TABLE(ZwCreateSection);
-    RESOLVE_IMPORT_TABLE(ZwOpenEvent);
-    RESOLVE_IMPORT_TABLE(MmGetSystemRoutineAddress);
-    RESOLVE_IMPORT_TABLE(MmAllocatePagesForMdlEx);
-    RESOLVE_IMPORT_TABLE(MmFreePagesFromMdl);
-    RESOLVE_IMPORT_TABLE(MmMapLockedPagesSpecifyCache);
-    RESOLVE_IMPORT_TABLE(MmUnmapLockedPages);
-    RESOLVE_IMPORT_TABLE(MmProbeAndLockPages);
-    RESOLVE_IMPORT_TABLE(MmProtectMdlSystemAddress);
-    RESOLVE_IMPORT_TABLE(MmUnlockPages);
-    RESOLVE_IMPORT_TABLE(KeWaitForSingleObject);
-    RESOLVE_IMPORT_TABLE(KeDelayExecutionThread);
-    RESOLVE_IMPORT_TABLE(ExAllocatePool2);
-    RESOLVE_IMPORT_TABLE(ExFreePoolWithTag);
-    RESOLVE_IMPORT_TABLE(RtlImageNtHeader);
-    RESOLVE_IMPORT_TABLE(RtlInitAnsiString);
-    RESOLVE_IMPORT_TABLE(RtlAnsiStringToUnicodeString);
-    RESOLVE_IMPORT_TABLE(RtlEqualUnicodeString);
-    RESOLVE_IMPORT_TABLE(RtlFreeUnicodeString);
-    RESOLVE_IMPORT_TABLE(RtlImageDirectoryEntryToData);
-    RESOLVE_IMPORT_TABLE(RtlFindExportedRoutineByName);
-    RESOLVE_IMPORT_TABLE(ObReferenceObjectByHandle);
-    RESOLVE_IMPORT_TABLE(ObfDereferenceObject);
-    RESOLVE_IMPORT_TABLE(PsCreateSystemThread);
-    RESOLVE_IMPORT_TABLE(PsTerminateSystemThread);
-    RESOLVE_IMPORT_TABLE(PsGetThreadExitStatus);
-    RESOLVE_IMPORT_TABLE(ZwClose);
-    RESOLVE_IMPORT_TABLE(IoAllocateMdl);
-    RESOLVE_IMPORT_TABLE(IoFreeMdl);
-#undef RESOLVE_IMPORT_TABLE
-    return STATUS_SUCCESS;
-}
-
 NTSTATUS MmLoadSystemImage(_In_ PDEVICE_DRIVER_OBJECT Driver, _In_ PVOID ImageBase)
 {
     typedef NTSTATUS (*PROTOTYPE_ROUTINE)(PVOID StartContex);

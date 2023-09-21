@@ -8,15 +8,18 @@
 
 #define MM_UNLOADED_DRIVER_SIZE 50
 
-METHOD_DECLARE_STRUCTURE(PIDDB_CACHE_ENTRY)
+METHOD_DECLARE_STRUCTURE(DDBCACHE_ENTRY)
 {
     //
     // These fields are used as matching critereon for cache lookup.
     //
     LIST_ENTRY List;
-    UNICODE_STRING DriverName; // Driver name
-    ULONG TimeDateStamp;       // Link date of the driver
-    NTSTATUS Status;           // Status from the DDB lookup
+    UNICODE_STRING Name; // Driver name
+    ULONG TimeDateStamp; // Link date of the driver
+    //
+    // Reference data for the cached entry.
+    //
+    NTSTATUS Status; // Status from the DDB lookup
     GUID Guid;
 };
 
@@ -78,7 +81,4 @@ METHOD_DECLARE_STRUCTURE(MP_DRIVERS_INFO)
     LONGLONG field_C8;
 };
 
-BOOLEAN RemoveDriverRuntimeList(
-    _In_ PDEVICE_DRIVER_OBJECT Driver,
-    _In_ LPCWSTR DriverName,
-    _In_ ULONG TimedateStamps);
+NTSTATUS RemoveDriverRuntimeList(IN PDEVICE_DRIVER_OBJECT Driver, IN LPCWSTR DriverName);

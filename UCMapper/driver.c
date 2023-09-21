@@ -125,7 +125,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
     RtlInitUnicodeString(&UnicodeString, DeviceName);
     InitializeObjectAttributes(&ObjectAttributes, &UnicodeString, OBJ_CASE_INSENSITIVE, NULL, NULL);
     Status = NtOpenFile(
-        DeviceHandle,
+        &DeviceHandle,
         FILE_ALL_ACCESS,
         &ObjectAttributes,
         &IoStatusBlock,
@@ -186,7 +186,7 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
             NULL);
 
         Status = NtOpenFile(
-            DeviceHandle,
+            &DeviceHandle,
             FILE_ALL_ACCESS,
             &ObjectAttributes,
             &IoStatusBlock,
@@ -234,11 +234,8 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
         DriverObject->ReadMemory   = ReadSystemMemory;
         DriverObject->WriteMemory  = WriteSystemMemory;
 
-        if (RemoveDriverRuntimeList(
-                DriverObject,
-                DriverBaseName,
-                RtlImageNtHeader(NvAudioLibrary)->FileHeader.TimeDateStamp)
-            == FALSE) {
+        Status = RemoveDriverRuntimeList(DriverObject, DriverBaseName);
+        if NT_ERROR (Status) {
             LdrUnloadDll(NvAudioLibrary);
             NvAudioLibrary = 0;
 
@@ -247,7 +244,6 @@ NTSTATUS LoadDriver(_Out_ PDEVICE_DRIVER_OBJECT DriverObject)
             RtlRegDeleteKey(ServiceName);
             RtlFileDelete(DriverFullPath);
 
-            Status = STATUS_ACCESS_DENIED;
             DEBUG_PRINT_NTSTATUS(Status);
             return Status;
         }
