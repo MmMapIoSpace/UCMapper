@@ -10,6 +10,7 @@ extern "C" {
 #include <Windows.h>
 #include <ntstatus.h>
 #include <strsafe.h>
+#include <Commctrl.h>
 #include "halamd64.h"
 #include "ntdll.h"
 
@@ -22,6 +23,12 @@ extern "C" {
 #include "driverlist.h"
 #include "kernel.h"
 #include "mapper.h"
+
+#include "resource.h"
+#pragma comment( \
+    linker,      \
+    "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
 
 #pragma intrinsic(memcpy)
 #pragma intrinsic(memset)
@@ -38,7 +45,7 @@ extern "C" {
             NULL,                                                           \
             RtlNtStatusToDosError(Status),                                  \
             MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),                      \
-            (LPWSTR)&Message,                                               \
+            (LPWSTR) & Message,                                             \
             0,                                                              \
             NULL);                                                          \
                                                                             \

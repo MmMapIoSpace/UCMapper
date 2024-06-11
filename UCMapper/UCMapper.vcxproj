@@ -46,11 +46,11 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -79,7 +79,11 @@
     <ClInclude Include="mapper.h" />
     <ClInclude Include="ntdll.h" />
     <ClInclude Include="registry.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="routine.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="UCMapper.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
